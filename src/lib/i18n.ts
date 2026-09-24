@@ -5,7 +5,8 @@ type Dict = Record<string, string>;
 const ru: Dict = {
   // Общие
   "common.save": "Сохранить",
-
+  "common.builtin": "встроенный",
+  "common.external": "внешняя",
 
   // Навигация
   "nav.editor": "Редактор",
@@ -38,8 +39,11 @@ const ru: Dict = {
   // Локальные модели
   "local.title": "Локальные модели",
   "local.dir": "Папка с моделями (.gguf)",
-  "local.port": "Порт локального API",
-  "local.detect": "Проверить доступность локального сервера",
+  "local.port": "Порт",
+  "local.serverUrl": "Адрес сервера",
+  "local.serverUrlHint": "Без порта: http://127.0.0.1 для локального, http://192.168.1.100 для удалённого",
+  "local.detect": "Проверить OpenAI-совместимый сервер",
+  "local.cannotStartRemote": "Удалённый сервер запускается вручную на своей машине",
   "local.running": "работает · PID {pid}",
   "local.stop": "Остановить",
 
@@ -52,6 +56,7 @@ const ru: Dict = {
   "settings.language": "Язык интерфейса",
   "settings.languageRu": "Русский",
   "settings.languageEn": "English",
+  "settings.pageSubtitle": "Подключение LLM, локальные модели и экспорт.",
 
   // Настройки — референсы
   "settings.references": "Референсы",
@@ -85,7 +90,8 @@ const ru: Dict = {
   "chat.send": "Отправить",
   "chat.aborted": "⏹ Генерация прервана.",
   "chat.abortedSuffix": "⏹ …прервано пользователем.",
-  "chat.emptyResponse": "⚠ Сервер вернул пустой ответ. Проверьте, что имя модели в настройках совпадает с загруженной моделью.",
+  "chat.emptyResponse":
+    "⚠ Сервер вернул пустой ответ. Проверьте, что имя модели в настройках совпадает с загруженной моделью.",
   "chat.error": "Ошибка",
 
   // Строка статуса
@@ -102,8 +108,7 @@ const ru: Dict = {
   "status.loading": "Загружено: {name}",
   "status.manifestParsed": "Манифест получен: {n} нод. Экспортирую GLB...",
   "status.glbSaved": "GLB сохранён: {path}",
-  "status.exportDirMissing":
-    "Манифест получен, но не задана папка экспорта",
+  "status.exportDirMissing": "Манифест получен, но не задана папка экспорта",
   "status.exportError": "Ошибка экспорта GLB: {msg}",
   "status.llmError": "Ошибка LLM: {msg}",
   "status.loadingError": "Ошибка загрузки",
@@ -111,12 +116,11 @@ const ru: Dict = {
   "status.modelsFound": "Найдено моделей: {n}",
   "status.scanError": "Ошибка сканирования",
   "status.selectModelFirst": "Сначала выберите .gguf-модель",
-  "status.sidecarStarted": "llama-server запущен (PID {pid})",
+  "status.sidecarReady": "llama-server готов (PID {pid})",
   "status.sidecarError": "Не удалось запустить llama-server",
   "status.ollamaStarted": "Ollama запущена (PID {pid})",
   "status.ollamaError": "Не удалось запустить Ollama",
-  "status.ollamaDetected": "Ollama обнаружена на порту {port}",
-  "status.ollamaNotResponding": "Ollama не отвечает",
+  "status.cannotStartRemote": "Нельзя запустить удалённый сервер из приложения",
   "status.processStopped": "Процесс остановлен",
   "status.stopError": "Ошибка остановки",
   "status.settingsSaveError": "Ошибка сохранения настроек: {msg}",
@@ -128,7 +132,12 @@ const ru: Dict = {
   "status.convertSameFormat": "Модель уже в формате GLB",
   "status.select3DModelFirst": "Сначала выберите 3D модель",
   "status.lmStudioDetected": "LM Studio подключён на порту {port}",
-  "status.lmStudioNotResponding": "LM Studio не отвечает на порту {port}. Запустите LM Studio и включите Local Server.",
+  "status.lmStudioNotResponding":
+    "LM Studio не отвечает на порту {port}. Запустите LM Studio и включите Local Server.",
+  "status.localApiChecking": "Проверяю сервер: {url}...",
+  "status.localApiDetected": "Подключено к {url} ({count} моделей)",
+  "status.localApiNotResponding": "Сервер не отвечает: {url}",
+  "status.exportDirSet": "Папка экспорта: {dir}",
 
   // Вьюпорт
   "viewport.play": "▶ Играть",
@@ -137,15 +146,21 @@ const ru: Dict = {
   "viewport.noModel": "нет модели",
 
   // Ошибки
-  "error.noApiKey": "Для облачного провайдера не задан API-ключ. Откройте настройки.",
+  "error.noApiKey":
+    "Для облачного провайдера не задан API-ключ. Откройте настройки.",
 };
 
 const en: Dict = {
+  // Common
   "common.save": "Save",
+  "common.builtin": "built-in",
+  "common.external": "external",
 
+  // Navigation
   "nav.editor": "Editor",
   "nav.settings": "Settings",
 
+  // Models
   "models.title": "Models",
   "models.addObject": "+ Object",
   "models.addReference": "+ Reference",
@@ -159,6 +174,7 @@ const en: Dict = {
   "models.format": "Format",
   "models.convert": "Convert",
 
+  // Provider
   "provider.title": "LLM Provider",
   "provider.label": "Provider",
   "provider.baseURL": "Base URL",
@@ -168,26 +184,37 @@ const en: Dict = {
   "provider.modelPlaceholder": "gpt-4o-mini / qwen3:4b",
   "provider.localWarning": "No API key configured for cloud provider",
 
+  // Local models
   "local.title": "Local models",
   "local.dir": "Models folder (.gguf)",
-  "local.port": "Local API port",
-  "local.detect": "Check local server availability",
+  "local.port": "Port",
+  "local.serverUrl": "Server URL",
+  "local.serverUrlHint":
+    "Without port: http://127.0.0.1 for local, http://192.168.1.100 for remote",
+  "local.detect": "Check OpenAI-compatible server",
+  "local.cannotStartRemote":
+    "Remote server must be started manually on its own machine",
   "local.running": "running · PID {pid}",
   "local.stop": "Stop",
 
+  // Export
   "export.title": "Export",
   "export.dir": "Export folder",
 
+  // Settings — interface
   "settings.interface": "Interface",
   "settings.language": "Interface language",
   "settings.languageRu": "Russian",
   "settings.languageEn": "English",
+  "settings.pageSubtitle": "LLM provider, local models, and export.",
 
+  // Settings — references
   "settings.references": "References",
   "settings.maxVerts": "Max vertices per node",
   "settings.maxVertsHint":
     "Lower — smaller prompt, coarser shape. Higher — more accurate, may overflow context.",
 
+  // Settings — updates
   "settings.updates": "Updates",
   "settings.checkUpdate": "Check for updates",
   "settings.checking": "Checking...",
@@ -199,6 +226,7 @@ const en: Dict = {
   "settings.updateError": "Update error: {msg}",
   "settings.currentVersion": "Current version",
 
+  // Chat
   "chat.title": "LLM Assistant",
   "chat.clear": "Clear",
   "chat.empty": "Describe what you want to change in the model.",
@@ -212,11 +240,14 @@ const en: Dict = {
   "chat.send": "Send",
   "chat.aborted": "⏹ Generation interrupted.",
   "chat.abortedSuffix": "⏹ …interrupted by user.",
-  "chat.emptyResponse": "⚠ Server returned an empty response. Check that the model name in settings matches the loaded model.",
+  "chat.emptyResponse":
+    "⚠ Server returned an empty response. Check that the model name in settings matches the loaded model.",
   "chat.error": "Error",
 
+  // Status bar
   "statusbar.models": "{n} mod.",
 
+  // Statuses
   "status.ready": "Ready",
   "status.generating": "Generating response...",
   "status.responseReceived": "Response received",
@@ -236,12 +267,11 @@ const en: Dict = {
   "status.modelsFound": "Models found: {n}",
   "status.scanError": "Scan error",
   "status.selectModelFirst": "Select a .gguf model first",
-  "status.sidecarStarted": "llama-server started (PID {pid})",
+  "status.sidecarReady": "llama-server ready (PID {pid})",
   "status.sidecarError": "Failed to start llama-server",
   "status.ollamaStarted": "Ollama started (PID {pid})",
   "status.ollamaError": "Failed to start Ollama",
-  "status.ollamaDetected": "Ollama detected on port {port}",
-  "status.ollamaNotResponding": "Ollama is not responding",
+  "status.cannotStartRemote": "Cannot start a remote server from the app",
   "status.processStopped": "Process stopped",
   "status.stopError": "Stop error",
   "status.settingsSaveError": "Settings save error: {msg}",
@@ -253,15 +283,21 @@ const en: Dict = {
   "status.convertSameFormat": "Model is already in GLB format",
   "status.select3DModelFirst": "Select a 3D model first",
   "status.lmStudioDetected": "LM Studio connected on port {port}",
-  "status.lmStudioNotResponding": "LM Studio is not responding on port {port}. Start LM Studio and enable Local Server.",
+  "status.lmStudioNotResponding":
+    "LM Studio is not responding on port {port}. Start LM Studio and enable Local Server.",
+  "status.localApiChecking": "Checking server: {url}...",
+  "status.localApiDetected": "Connected to {url} ({count} models)",
+  "status.localApiNotResponding": "Server is not responding: {url}",
+  "status.exportDirSet": "Export folder: {dir}",
 
+  // Viewport
   "viewport.play": "▶ Play",
   "viewport.pause": "⏸ Pause",
   "viewport.animation": "— animation —",
   "viewport.noModel": "no model",
 
+  // Errors
   "error.noApiKey": "No API key configured for cloud provider. Open settings.",
-
 };
 
 const dictionaries: Record<AppLanguage, Dict> = { ru, en };

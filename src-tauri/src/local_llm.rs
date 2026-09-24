@@ -5,6 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::OnceLock;
+use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -30,6 +31,15 @@ pub struct RunningProcessInfo {
     pub kind: String,
     /// Базовый URL для OpenAI-совместимого API
     pub base_url: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalApiCheckResult {
+    pub available: bool,
+    pub url: String,
+    /// Список моделей, если сервер вернул его в /v1/models
+    pub models: Vec<String>,
 }
 
 // =====================================================================
@@ -93,7 +103,7 @@ pub fn scan_local_models(dir: String) -> Result<Vec<LocalModelInfo>, String> {
 }
 
 // =====================================================================
-//  ЗАПУСК LLAMA-SERVER КАК SIDECAR
+//  ЗАПУСК LLAMA-SERVER КАК SIDECAR (только для локальных моделей)
 // =====================================================================
 
 #[tauri::command]
@@ -106,7 +116,6 @@ pub async fn start_local_llm_sidecar(
         return Err(format!("Модель не найдена: {}", model_path));
     }
 
-    // 1) Готовим аргументы ДО первого использования
     let args: Vec<String> = vec![
         "-m".into(),
         model_path.clone(),
@@ -118,14 +127,11 @@ pub async fn start_local_llm_sidecar(
         "4096".into(),
     ];
 
-    // 2) Sidecar-команда
     let sidecar = app
         .shell()
         .sidecar("llama-server")
         .map_err(|e| format!("Не удалось создать sidecar-команду: {}", e))?;
 
-    // 3) Рабочая директория = ресурсы приложения / binaries,
-    //    где лежат DLL рядом с exe
     let binaries_dir = app
         .path()
         .resource_dir()
@@ -134,7 +140,6 @@ pub async fn start_local_llm_sidecar(
 
     println!("[debug] sidecar working dir: {:?}", binaries_dir);
 
-    // 4) Запуск — current_dir ставим ПЕРЕД spawn
     let (mut rx, child) = sidecar
         .current_dir(binaries_dir)
         .args(args)
@@ -144,7 +149,6 @@ pub async fn start_local_llm_sidecar(
     let pid = child.pid();
     sidecar_processes().lock().insert(pid, child);
 
-    // 5) Чтение stdout/stderr
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
@@ -176,15 +180,9 @@ pub async fn start_local_llm_sidecar(
 }
 
 // =====================================================================
-//  ЗАПУСК OLLAMA КАК ВНЕШНЕГО ПРОЦЕССА
+//  ЗАПУСК OLLAMA ЛОКАЛЬНО (только для локальной машины)
 // =====================================================================
 
-/// Запускает `ollama serve`.
-///
-/// Параметр `_model_name` зарезервирован для будущего использования —
-/// `ollama serve` сам по себе не принимает имя модели; оно указывается
-/// в каждом запросе к API. Мы оставляем параметр, чтобы фронтенд мог
-/// передавать ту же структуру вызова, что и для sidecar.
 #[tauri::command]
 pub fn start_ollama(_model_name: String, port: u16) -> Result<RunningProcessInfo, String> {
     let child = Command::new("ollama")
@@ -211,19 +209,88 @@ pub fn start_ollama(_model_name: String, port: u16) -> Result<RunningProcessInfo
 }
 
 // =====================================================================
+//  УНИВЕРСАЛЬНАЯ ПРОВЕРКА OpenAI-СОВМЕСТИМОГО СЕРВЕРА
+// =====================================================================
+
+/// Проверяет, отвечает ли OpenAI-совместимый сервер по указанному URL.
+///
+/// Подходит для:
+/// - локальной Ollama (`http://127.0.0.1:11434`)
+/// - локального LM Studio (`http://127.0.0.1:1234`)
+/// - встроенного llama-server (`http://127.0.0.1:8080`)
+/// - **удалённого сервера** (`http://192.168.1.100:11434` или `https://my-server.com`)
+///
+/// Возвращает `available` и список моделей, если сервер вернул `/v1/models`.
+#[tauri::command]
+pub async fn check_openai_compatible(url: String) -> LocalApiCheckResult {
+    let base = url.trim_end_matches('/').to_string();
+    let models_url = format!("{}/v1/models", base);
+
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[check_openai_compatible] client build error: {}", e);
+            return LocalApiCheckResult {
+                available: false,
+                url: base,
+                models: vec![],
+            };
+        }
+    };
+
+    match client.get(&models_url).send().await {
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                return LocalApiCheckResult {
+                    available: false,
+                    url: base,
+                    models: vec![],
+                };
+            }
+
+            // Пытаемся вытащить список id моделей из ответа
+            let mut models: Vec<String> = vec![];
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(arr) = json.get("data").and_then(|d| d.as_array()) {
+                    for item in arr {
+                        if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
+                            models.push(id.to_string());
+                        }
+                    }
+                }
+            }
+
+            LocalApiCheckResult {
+                available: true,
+                url: base,
+                models,
+            }
+        }
+        Err(e) => {
+            eprintln!("[check_openai_compatible] request error: {}", e);
+            LocalApiCheckResult {
+                available: false,
+                url: base,
+                models: vec![],
+            }
+        }
+    }
+}
+
+// =====================================================================
 //  ОСТАНОВКА ПРОЦЕССОВ
 // =====================================================================
 
 #[tauri::command]
 pub fn stop_llm_process(pid: u32) -> Result<(), String> {
-    // Сначала пробуем sidecar
     if let Some(child) = sidecar_processes().lock().remove(&pid) {
-        // CommandChild::kill принимает self по значению
         child.kill().map_err(|e| e.to_string())?;
         return Ok(());
     }
 
-    // Затем внешние
     if let Some(mut child) = external_processes().lock().remove(&pid) {
         child.kill().map_err(|e| e.to_string())?;
         let _ = child.wait();
@@ -243,24 +310,4 @@ pub fn list_running_processes() -> Vec<u32> {
     pids.extend(sidecar_processes().lock().keys().copied());
     pids.extend(external_processes().lock().keys().copied());
     pids
-}
-
-/// Проверяет, отвечает ли Ollama на указанном порту.
-#[tauri::command]
-pub async fn check_ollama_available(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{}/v1/models", port);
-    match reqwest::get(&url).await {
-        Ok(resp) => resp.status().is_success(),
-        Err(_) => false,
-    }
-}
-
-/// Проверяет, отвечает ли llama-server на указанном порту.
-#[tauri::command]
-pub async fn check_llama_server_available(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{}/health", port);
-    match reqwest::get(&url).await {
-        Ok(resp) => resp.status().is_success(),
-        Err(_) => false,
-    }
 }

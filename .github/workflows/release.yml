@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  LLAMA_CPP_VERSION: "b6599"
+  LLAMA_CPP_VERSION: "b11157"
   LLAMA_CPP_CUDA: "12.4"
 
 jobs:

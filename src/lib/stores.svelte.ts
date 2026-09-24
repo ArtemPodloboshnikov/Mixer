@@ -77,6 +77,10 @@ class AppState {
   /** PID запущенного процесса (для ollama или llama-server) */
   runningPid = $state<number | null>(null);
 
+  /** Базовый URL локального или удалённого сервера без порта.
+   *  Примеры: "http://127.0.0.1", "http://192.168.1.100", "https://my-server.com" */
+  localApiUrl = $state<string>("http://127.0.0.1");
+
   /** Единый порт для локального OpenAI-совместимого сервера
    *  (Ollama: 11434, LM Studio: 1234, llama.cpp: 8080) */
   localApiPort = $state<number>(8080);
@@ -88,6 +92,12 @@ class AppState {
 
   statusText = $state<string>("");
   statusKind = $state<"info" | "error" | "success">("info");
+
+  /** Собранный полный URL: {localApiUrl}:{localApiPort} */
+  get localApiBase(): string {
+    const base = this.localApiUrl.trim().replace(/\/+$/, "");
+    return `${base}:${this.localApiPort}`;
+  }
 
   get activeModel(): ModelEntry | undefined {
     return this.models.find((m) => m.id === this.activeModelId);
@@ -127,6 +137,7 @@ class AppState {
         localModelsDir: this.localModelsDir,
         exportDir: this.exportDir,
         localApiPort: this.localApiPort,
+        localApiUrl: this.localApiUrl,
         selectedModelPath: this.selectedModelPath,
         maxVertsPerNode: this.maxVertsPerNode,
         language: this.language,
@@ -149,6 +160,7 @@ class AppState {
       if (data.localModelsDir) this.localModelsDir = data.localModelsDir;
       if (data.exportDir) this.exportDir = data.exportDir;
       if (data.localApiPort) this.localApiPort = data.localApiPort;
+      if (data.localApiUrl) this.localApiUrl = data.localApiUrl;
       if (data.selectedModelPath) this.selectedModelPath = data.selectedModelPath;
       if (data.maxVertsPerNode) this.maxVertsPerNode = data.maxVertsPerNode;
       if (data.language) this.language = data.language;

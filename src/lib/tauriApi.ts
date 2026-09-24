@@ -112,20 +112,19 @@ export async function stopLlmProcess(pid: number): Promise<void> {
 //  ДИАГНОСТИКА
 // =====================================================================
 
+export interface LocalApiCheckResult {
+  available: boolean;
+  url: string;
+  models: string[];
+}
+
 export async function listRunningProcesses(): Promise<number[]> {
   return await invoke<number[]>("list_running_processes");
 }
 
-export async function checkOllamaAvailable(port: number): Promise<boolean> {
-  return await invoke<boolean>("check_ollama_available", { port });
+export async function checkLocalApi(url: string): Promise<LocalApiCheckResult> {
+  return await invoke<LocalApiCheckResult>("check_openai_compatible", { url });
 }
-
-export async function checkLlamaServerAvailable(
-  port: number
-): Promise<boolean> {
-  return await invoke<boolean>("check_llama_server_available", { port });
-}
-
 // =====================================================================
 //  ОБНОВЛЕНИЯ
 // =====================================================================

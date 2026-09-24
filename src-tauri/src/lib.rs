@@ -4,8 +4,8 @@ mod local_llm;
 
 use glb::export_glb;
 use local_llm::{
-    check_llama_server_available, check_ollama_available, list_running_processes,
-    scan_local_models, start_local_llm_sidecar, start_ollama, stop_llm_process,
+    check_openai_compatible, list_running_processes, scan_local_models, start_local_llm_sidecar,
+    start_ollama, stop_llm_process,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -24,8 +24,7 @@ pub fn run() {
             start_ollama,
             stop_llm_process,
             list_running_processes,
-            check_ollama_available,
-            check_llama_server_available,
+            check_openai_compatible,
             convert::convert_model,
         ])
         .run(tauri::generate_context!())

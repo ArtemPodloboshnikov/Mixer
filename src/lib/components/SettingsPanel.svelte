@@ -6,10 +6,10 @@
     startLlamaSidecar,
     startOllama,
     stopLlmProcess,
-    checkOllamaAvailable,
     type UpdateInfo,
     downloadAndInstallUpdate,
     checkForUpdate,
+    checkLocalApi,
   } from "$lib/tauriApi";
     import { t } from "$lib/i18n";
     import Dropdown from "./Dropdown.svelte";
@@ -24,7 +24,6 @@
   let checking = $state(false);
   let downloading = $state(false);
   let downloadPercent = $state(0);
-  let hasChecked = $state(false);
 
   const providers: { value: LlmProvider; label: string; baseURL: string }[] = [
     {
@@ -44,34 +43,29 @@
     },
     {
       value: "llama-sidecar",
-      label: "llama.cpp (встроенный)",
+      label: `llama.cpp (${t("common.builtin")})`,
       baseURL: "http://127.0.0.1:8080/v1",
     },
     {
       value: "ollama",
-      label: "Ollama (внешняя)",
+      label: `Ollama (${t("common.external")})`,
       baseURL: "http://127.0.0.1:11434/v1",
     },
+    {
+      value: "lmstudio",
+      label: `LM Studio (${t("common.external")})`,
+      baseURL: "http://127.0.0.1:1234/v1",
+    }
   ];
 
-  const serversPorts = [
-    {
-      name: "Ollama",
-      port: 11434
-    },
-    {
-      name: "LM Studio",
-      port: 1234
-    },
-    {
-      name: "llama-server",
-      port: 8080
-    },
-  ]
+  const serverPresets = [
+    { name: "Ollama", url: "http://127.0.0.1", port: 11434 },
+    { name: "LM Studio", url: "http://127.0.0.1", port: 1234 },
+    { name: "llama-server", url: "http://127.0.0.1", port: 8080 },
+  ];
 
   async function checkUpdates() {
     checking = true;
-    hasChecked = true;
     try {
       updateInfo = await checkForUpdate();
       if (!updateInfo) {
@@ -150,7 +144,6 @@
       return;
     }
     try {
-      // Берём имя файла без пути и расширения
       const filename = app.selectedModelPath.split(/[\\/]/).pop() ?? "model";
       const modelName = filename.replace(/\.gguf$/i, "");
 
@@ -159,7 +152,8 @@
       app.llmConfig.provider = "llama-sidecar";
       app.llmConfig.baseURL = info.baseUrl;
       app.llmConfig.model = modelName;
-      app.setStatus(t("status.sidecarStarted", { pid: info.pid }), "success");
+
+      app.setStatus(t("status.sidecarReady", { pid: info.pid }), "success");
     } catch (e: any) {
       app.setStatus(`${t("status.sidecarError")}: ${e?.message ?? e}`, "error");
     }
@@ -167,33 +161,54 @@
 
   /** Запуск внешнего OpenAI-совместимого сервера (Ollama) */
   async function launchLocalApi(provider: "ollama" | "lmstudio") {
-    app.llmConfig.baseURL = `http://127.0.0.1:${app.localApiPort}/v1`;
-    app.llmConfig.provider = provider;
-    if (provider === "ollama") {
-      try {
-          const info = await startOllama(app.llmConfig.model, app.localApiPort);
-          app.runningPid = info.pid;
-          app.setStatus(t("status.ollamaStarted", { pid: info.pid }), "success");
-      } catch (e: any) {
-        app.setStatus(`${t("status.ollamaError")}: ${e?.message ?? e}`, "error");
-      }
-    } else {
-      const ok = await checkOllamaAvailable(app.localApiPort);
+    const base = app.localApiBase;
+    const local = isLocalHost(app.localApiUrl);
 
-      if (ok) {
-        app.llmConfig.baseURL = `http://127.0.0.1:${app.localApiPort}/v1`;
-        app.setStatus(
-          t("status.lmStudioDetected", { port: app.localApiPort }),
-          "success"
-        );
-      } else {
-        app.setStatus(
-          t("status.lmStudioNotResponding", { port: app.localApiPort }),
-          "error"
-        );
-      }
+    app.setStatus(t("status.localApiChecking", { url: base }), "info");
+    const ok = await checkLocalApi(base);
+
+    if (!ok.available) {
+      app.setStatus(
+        t("status.localApiNotResponding", { url: base }),
+        "error"
+      );
+      return;
     }
 
+    app.llmConfig.provider = provider;
+    app.llmConfig.baseURL = `${base}/v1`;
+
+    if (ok.models.length > 0 && !app.llmConfig.model) {
+      app.llmConfig.model = ok.models[0];
+    }
+
+    app.setStatus(
+      t("status.localApiDetected", {
+        url: base,
+        count: ok.models.length,
+      }),
+      "success"
+    );
+
+    if (provider === "ollama" && local && app.runningPid == null) {
+      try {
+        const info = await startOllama(app.llmConfig.model, app.localApiPort);
+        app.runningPid = info.pid;
+        app.setStatus(
+          t("status.ollamaStarted", { pid: info.pid }),
+          "success"
+        );
+      } catch {}
+    }
+  }
+
+  function isLocalHost(url: string): boolean {
+    try {
+      const u = new URL(url);
+      return u.hostname === "127.0.0.1" || u.hostname === "localhost";
+    } catch {
+      return false;
+    }
   }
 
   async function killProcess() {
@@ -345,17 +360,30 @@
 
       <!-- ============ Порт и пресеты ============ -->
       <div class="field">
-        <label class="label" for="localport">{t("local.port")}</label>
+        <label class="label" for="localurl">{t("local.serverUrl")}</label>
+        <input
+          id="localurl"
+          type="text"
+          bind:value={app.localApiUrl}
+          placeholder="http://127.0.0.1"
+        />
+        <div class="hint">{t("local.serverUrlHint")}</div>
+      </div>
 
+      <div class="field">
+        <label class="label" for="localport">{t("local.port")}</label>
         <div class="port-row">
-          {#each serversPorts as serverPort}
+          {#each serverPresets as preset}
             <button
-                class="btn btn-ghost port-preset"
-                class:active={app.localApiPort === serverPort.port}
-                onclick={() => (app.localApiPort = serverPort.port)}
-                type="button"
+              class="btn btn-ghost port-preset"
+              class:active={app.localApiUrl === preset.url && app.localApiPort === preset.port}
+              onclick={() => {
+                app.localApiUrl = preset.url;
+                app.localApiPort = preset.port;
+              }}
+              type="button"
             >
-                {serverPort.name}
+              {preset.name}
             </button>
           {/each}
           <input
