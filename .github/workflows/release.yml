@@ -51,7 +51,7 @@ jobs:
           $cudaVersion = "${{ env.LLAMA_CPP_CUDA }}"
 
           # ---- 1. Скачиваем основной архив ----
-          $url = "https://github.com/ggml-org/llama.cpp/releases/download/$llamaVersion/llama-$llamaVersion-bin-win-$cudaVersion-x64.zip"
+          $url = "https://github.com/ggml-org/llama.cpp/releases/download/$llamaVersion/llama-$llamaVersion-bin-win-cuda-$cudaVersion-x64.zip"
           Write-Host "Downloading: $url"
           $zip = "$env:TEMP\llama-cpp.zip"
           Invoke-WebRequest -Uri $url -OutFile $zip
