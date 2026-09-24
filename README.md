@@ -1,6 +1,8 @@
 # Mixer
 
-<img src="/src-tauri/icons/128x128@2x.png" style="border-radious: 16px; margin: 0 auto;" alt="App logo" />
+<p align="center">
+  <img src="/src-tauri/icons/128x128@2x.png" alt="App logo" />
+</p>
 
 ![Mixer — main window](/screenshots/app.png)
 
