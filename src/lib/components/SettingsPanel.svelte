@@ -181,6 +181,7 @@
       app.setStatus(t("status.scanning"), "info");
       const list = await scanLocalModels(app.localModelsDir);
       app.localModels = list;
+      app.llmConfig.model = list[0].name;
       app.setStatus(t("status.modelsFound", { n: list.length }), "success");
     } catch (e: any) {
       app.setStatus(`${t("status.scanError")}: ${e?.message ?? e}`, "error");
@@ -359,31 +360,21 @@
         />
       </div>
 
+    {#if hasModelList}
       <div class="field">
         <label class="label" for="model">{t("provider.model")}</label>
-
-        {#if hasModelList}
           <Dropdown
             bind:value={app.llmConfig.model}
             options={availableModels}
-            placeholder={t("provider.modelPlaceholder")}
             minWidth="100%"
             openDown
           />
-        {:else}
-          <input
-            id="model"
-            bind:value={app.llmConfig.model}
-            placeholder={t("provider.modelPlaceholder")}
-          />
-        {/if}
 
-        {#if hasModelList}
           <div class="hint">
             {t("provider.modelsAvailable", { n: availableModels.length })}
           </div>
-        {/if}
       </div>
+    {/if}
 
       <div class="field">
         <button
@@ -534,7 +525,7 @@
       <div class="section-title">{t("settings.updates")}</div>
 
       <div class="field">
-        <label class="label">{t("settings.currentVersion")}</label>
+        <span class="label">{t("settings.currentVersion")}</span>
         <div class="version-row">
           <span class="version-badge mono">v{currentVersion}</span>
           <button
@@ -554,13 +545,6 @@
               {t("settings.updateAvailable", { version: updateInfo.version })}
             </span>
           </div>
-
-          {#if updateInfo.body}
-            <div class="update-notes">
-              <div class="update-notes-label">{t("settings.updateNotes")}</div>
-              <div class="update-notes-body">{updateInfo.body}</div>
-            </div>
-          {/if}
 
           {#if downloading}
             <div class="download-progress">
@@ -818,31 +802,6 @@
     font-weight: 600;
     color: var(--purple-2);
     font-size: 13px;
-  }
-
-  .update-notes {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .update-notes-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-2);
-    font-weight: 600;
-  }
-
-  .update-notes-body {
-    font-size: 12px;
-    color: var(--text-1);
-    white-space: pre-wrap;
-    max-height: 100px;
-    overflow-y: auto;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(10, 8, 16, 0.4);
   }
 
   .download-progress {

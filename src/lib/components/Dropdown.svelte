@@ -16,7 +16,7 @@
     value: string;
     /** Либо массив строк, либо массив пар { value, label } */
     options: string[] | DropdownOption[];
-    placeholder: string;
+    placeholder?: string;
     disabled?: boolean;
     minWidth?: string;
     /** true — открывать список снизу от поля, false — сверху */

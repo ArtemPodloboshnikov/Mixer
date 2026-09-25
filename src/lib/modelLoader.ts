@@ -4,26 +4,27 @@ import { app, type ModelEntry } from "./stores.svelte";
 import { t } from "./i18n";
 
 export async function pickAndAddModel(
-  isReference: boolean
+  isReference: boolean,
+  path?: string
 ): Promise<ModelEntry | null> {
-  const filePath = await open({
+  const filePath = path || await open({
     multiple: false,
     filters: [{ name: "GLB / GLTF", extensions: ["glb", "gltf"] }],
   });
   if (!filePath) return null;
 
-  const bytes = await readFile(filePath as string);
-  const ext = (filePath as string).split(".").pop()?.toLowerCase();
+  const bytes = await readFile(filePath);
+  const ext = filePath.split(".").pop()?.toLowerCase();
   const mime = ext === "glb" ? "model/gltf-binary" : "model/gltf+json";
   const blob = new Blob([bytes], { type: mime });
   const url = URL.createObjectURL(blob);
 
-  const filename = (filePath as string).split(/[\\/]/).pop() ?? "model";
+  const filename = filePath.split(/[\\/]/).pop() ?? "model";
   const entry: ModelEntry = {
     id: crypto.randomUUID(),
     name: filename,
     url,
-    filePath: filePath as string,
+    filePath,
     isReference,
     visible: true,
     animations: [],

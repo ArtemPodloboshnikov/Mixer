@@ -33,7 +33,6 @@ const ru: Dict = {
   "provider.apiKey": "API ключ",
   "provider.apiKeyPlaceholder": "не требуется для локальных моделей",
   "provider.model": "Модель",
-  "provider.modelPlaceholder": "gpt-4o-mini / qwen3:4b",
   "provider.localWarning": "Для облачного провайдера не задан API-ключ",
   "provider.test": "Проверить подключение",
   "provider.testing": "Проверяю...",
@@ -72,7 +71,6 @@ const ru: Dict = {
   "settings.checking": "Проверка...",
   "settings.upToDate": "У вас последняя версия",
   "settings.updateAvailable": "Доступна версия {version}",
-  "settings.updateNotes": "Что нового",
   "settings.installUpdate": "Установить обновление",
   "settings.downloading": "Загрузка... {percent}%",
   "settings.updateError": "Ошибка обновления: {msg}",
@@ -95,9 +93,6 @@ const ru: Dict = {
   "chat.emptyResponse":
     "⚠ Сервер вернул пустой ответ. Проверьте, что имя модели в настройках совпадает с загруженной моделью.",
   "chat.error": "Ошибка",
-
-  // Строка статуса
-  "statusbar.models": "{n} мод.",
 
   // Статусы
   "status.ready": "Готово",
@@ -142,7 +137,7 @@ const ru: Dict = {
   "status.exportDirSet": "Папка экспорта: {dir}",
   "status.providerUrlEmpty": "Base URL не задан — заполните поле выше.",
   "status.providerChecking": "Проверяю сервер: {url}...",
-  "status.providerReachable": "Сервер отвечает: {url} ({count} моделей)",
+  "status.providerReachable": "Сервер отвечает: {url} ({count} модели)",
   "status.providerUnreachable": "Сервер не отвечает: {url}",
   "status.providerCheckError": "Ошибка проверки: {msg}",
 
@@ -188,7 +183,6 @@ const en: Dict = {
   "provider.apiKey": "API key",
   "provider.apiKeyPlaceholder": "not required for local models",
   "provider.model": "Model",
-  "provider.modelPlaceholder": "gpt-4o-mini / qwen3:4b",
   "provider.localWarning": "No API key configured for cloud provider",
   "provider.test": "Test connection",
   "provider.testing": "Testing...",
@@ -228,7 +222,6 @@ const en: Dict = {
   "settings.checking": "Checking...",
   "settings.upToDate": "You have the latest version",
   "settings.updateAvailable": "Version {version} is available",
-  "settings.updateNotes": "What's new",
   "settings.installUpdate": "Install update",
   "settings.downloading": "Downloading... {percent}%",
   "settings.updateError": "Update error: {msg}",
@@ -251,9 +244,6 @@ const en: Dict = {
   "chat.emptyResponse":
     "⚠ Server returned an empty response. Check that the model name in settings matches the loaded model.",
   "chat.error": "Error",
-
-  // Status bar
-  "statusbar.models": "{n} mod.",
 
   // Statuses
   "status.ready": "Ready",

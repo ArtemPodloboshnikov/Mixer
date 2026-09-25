@@ -7,6 +7,7 @@
   import { t } from "$lib/i18n";
   import { getVersion } from "@tauri-apps/api/app";
     import StatusBar from "$lib/components/StatusBar.svelte";
+    import { scanLocalModels } from "$lib/tauriApi";
 
   let { children } = $props();
 
@@ -18,11 +19,18 @@
   ]);
 
   onMount(async () => {
-    app.loadSettings();
+    await app.loadSettings();
     try {
       version = await getVersion();
     } catch {
       version = "0.0.0";
+    }
+
+    if (app.localModelsDir) {
+      try {
+        const list = await scanLocalModels(app.localModelsDir);
+        app.localModels = list;
+      } catch {}
     }
   });
 </script>

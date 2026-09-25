@@ -8,7 +8,7 @@
   <span class="text">{app.statusText}</span>
   <span class="spacer"></span>
   <span class="mono dim">
-    {t("statusbar.models", { n: app.models.length })} · LLM: {app.llmConfig.provider}/{app.llmConfig.model}
+    LLM: {app.llmConfig.provider}/{app.llmConfig.model}
     {#if app.runningPid}· PID {app.runningPid}{/if}
   </span>
 </div>

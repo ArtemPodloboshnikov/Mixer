@@ -3,6 +3,7 @@ import { app, type ChatMessage } from "./stores.svelte";
 import { exportGlb, type ExportPayload } from "./tauriApi";
 import { buildReferenceBlock } from "./referenceDescriber";
 import { t } from "./i18n";
+import { pickAndAddModel } from "./modelLoader";
 
 let client: OpenAI | null = null;
 let clientKey = "";
@@ -304,6 +305,7 @@ export async function sendMessage(
       );
       const outPath = await exportManifest(manifest);
       if (outPath) {
+        await pickAndAddModel(false, outPath)
         app.setStatus(
           t("status.glbSaved", { path: outPath }),
           "success"

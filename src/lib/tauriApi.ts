@@ -132,7 +132,6 @@ export async function checkLocalApi(url: string): Promise<LocalApiCheckResult> {
 export interface UpdateInfo {
   version: string;
   date: string;
-  body: string;
 }
 
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
@@ -141,7 +140,6 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
   return {
     version: update.version,
     date: update.date ?? "",
-    body: update.body ?? "",
   };
 }
 
