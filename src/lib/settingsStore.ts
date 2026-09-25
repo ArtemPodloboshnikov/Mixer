@@ -19,7 +19,6 @@ export interface PersistedSettings {
   };
   localModelsDir: string;
   exportDir: string;
-  localApiUrl: string;
   localApiPort: number;
   selectedModelPath: string;
   maxVertsPerNode: number;

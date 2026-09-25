@@ -50,13 +50,20 @@
     const action = mixer.clipAction(clip);
     action.reset();
     action.play();
+    action.paused = !app.isModelPlaying(modelId);
     actions[modelId] = action;
   }
 
-  function onAnimationChange(name: string) {
-    app.isPlaying = true;
-    // $effect ниже сам вызовет playAnimation
-    void name;
+  function onAnimationChange() {
+    const id = app.activeModelId;
+    if (!id) return;
+
+    // Пользователь выбрал анимацию — значит хочет её видеть
+    app.setModelPlaying(id, true);
+
+    // Проигрываем action сразу, не дожидаясь $effect
+    const action = actions[id];
+    if (action) action.paused = false;
   }
 
   // При смене активной модели обновляем список анимаций
@@ -66,6 +73,7 @@
       activeAnimations = [];
       return;
     }
+
     const ref = gltfRefs[id];
     if (ref) {
       activeAnimations = ref.animations.map(
@@ -81,13 +89,12 @@
     if (id && anim) playAnimation(id, anim);
   });
 
-  // Пауза / воспроизведение
   $effect(() => {
-    const playing = app.isPlaying;
-    Object.values(actions).forEach((a) => {
-      if (!a) return;
-      a.paused = !playing;
-    });
+    const id = app.activeModelId;
+    if (!id) return;
+    const playing = app.isModelPlaying(id);
+    const action = actions[id];
+    if (action) action.paused = !playing;
   });
 </script>
 
@@ -149,13 +156,21 @@
   </Canvas>
 
   <div class="hud-bottom glass">
-    <button
-      class="btn btn-ghost play-btn"
-      onclick={() => (app.isPlaying = !app.isPlaying)}
-      title={app.isPlaying ? t("viewport.pause") : t("viewport.play")}
-    >
-      {app.isPlaying ? t("viewport.pause") : t("viewport.play")}
-    </button>
+      <button
+        class="btn btn-ghost play-btn"
+        onclick={() => {
+          const id = app.activeModelId;
+          if (!id) return;
+          const next = !app.isModelPlaying(id);
+          app.setModelPlaying(id, next);
+          // Сразу применим к action этой модели
+          const action = actions[id];
+          if (action) action.paused = !next;
+        }}
+        title={app.isModelPlaying(app.activeModelId ?? "") ? t("viewport.pause") : t("viewport.play")}
+      >
+        {app.isModelPlaying(app.activeModelId ?? "") ? t("viewport.pause") : t("viewport.play")}
+      </button>
 
     <Dropdown
       bind:value={app.selectedAnimation}

@@ -14,5 +14,6 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    grid-column: 1 / -1;
   }
 </style>

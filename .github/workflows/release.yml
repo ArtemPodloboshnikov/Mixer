@@ -58,44 +58,19 @@ jobs:
           $extract = "$env:TEMP\llama-cpp"
           Expand-Archive -Path $zip -DestinationPath $extract -Force
 
+          # Создаём папку binaries
           New-Item -ItemType Directory -Force -Path "src-tauri/binaries" | Out-Null
 
-          $needed = @(
-            "llama.dll",
-            "llama-server-impl.dll",
-            "ggml.dll",
-            "ggml-base.dll",
-            "ggml-cuda.dll",
-            "mtmd.dll"
-          )
+          # Копируем ВСЕ DLL (включая ggml-cpu-*, cudart, cublas и прочие зависимости)
+          Copy-Item "$extract\*.dll" -Destination "src-tauri/binaries/" -Force
 
-          foreach ($f in $needed) {
-            $src = Join-Path $extract $f
-            if (Test-Path $src) {
-              Copy-Item $src -Destination "src-tauri/binaries/"
-              Write-Host "  copied: $f"
-            } else {
-              Write-Host "  MISSING: $f"
-            }
-          }
+          # Копируем только llama-server.exe, остальные CLI-утилиты игнорируем
+          Copy-Item "$extract\llama-server.exe" -Destination "src-tauri/binaries/" -Force
 
-          Get-ChildItem "$extract\ggml-cpu-*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
-            Copy-Item $_.FullName -Destination "src-tauri/binaries/"
-            Write-Host "  copied: $($_.Name)"
-          }
+          # Переименовываем под target triple, который ожидает Tauri
+          Rename-Item "src-tauri/binaries\llama-server.exe" -NewName "llama-server-x86_64-pc-windows-msvc.exe"
 
-          if (Test-Path "$extract\ggml-cpu.dll") {
-            Copy-Item "$extract\ggml-cpu.dll" -Destination "src-tauri/binaries/"
-            Write-Host "  copied: ggml-cpu.dll"
-          }
-
-          $serverExe = Get-ChildItem "$extract\llama-server*.exe" | Select-Object -First 1
-          if (-not $serverExe) {
-            throw "llama-server.exe не найден в архиве"
-          }
-          Copy-Item $serverExe.FullName -Destination "src-tauri/binaries/llama-server-x86_64-pc-windows-msvc.exe"
-          Write-Host "  copied llama-server as llama-server-x86_64-pc-windows-msvc.exe"
-
+          # Отладка: что лежит в binaries
           Write-Host ""
           Write-Host "=== src-tauri/binaries ==="
           Get-ChildItem "src-tauri/binaries" | Format-Table Name, Length

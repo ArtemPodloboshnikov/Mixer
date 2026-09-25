@@ -6,6 +6,7 @@
   import { app } from "$lib/stores.svelte";
   import { t } from "$lib/i18n";
   import { getVersion } from "@tauri-apps/api/app";
+    import StatusBar from "$lib/components/StatusBar.svelte";
 
   let { children } = $props();
 
@@ -55,6 +56,9 @@
 
   <main class="main-content">
     {@render children()}
+    <footer class="status-area">
+      <StatusBar />
+    </footer>
   </main>
 </div>
 
@@ -148,5 +152,15 @@
   .main-content {
     overflow: hidden;
     height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    grid-template-rows: 1fr auto;
+    gap: 14px;
+    padding: 0;
+  }
+
+  .status-area {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 </style>

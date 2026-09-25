@@ -3,13 +3,12 @@
     import { sendMessage, clearChat, stopGeneration } from "$lib/llmClient";
     import { t } from "$lib/i18n";
 
-    let input = $state("");
     let messagesEl: HTMLDivElement | undefined = $state();
 
     async function submit() {
-      const text = input.trim();
+      const text = app.userInput.trim();
       if (!text || app.isGenerating) return;
-      input = "";
+      app.userInput = "";
       await sendMessage(text, () => {
         queueMicrotask(() => {
           if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -47,7 +46,7 @@
       <div class="msg {msg.role}">
         <div class="role">{msg.role === "user" ? t("chat.you") : t("chat.ai")}</div>
         <div class="content">
-          {msg.content}{#if msg.streaming}<span class="cursor">▌</span>{/if}
+          {msg.content}
         </div>
       </div>
     {/each}
@@ -55,7 +54,7 @@
 
   <div class="composer">
     <textarea
-      bind:value={input}
+      bind:value={app.userInput}
       placeholder={t("chat.placeholder")}
       rows={3}
       onkeydown={onKeydown}
@@ -74,7 +73,7 @@
       <button
         class="btn send-btn"
         onclick={submit}
-        disabled={!input.trim()}
+        disabled={!app.userInput.trim()}
         title={t("chat.send")}
       >
         →
@@ -177,16 +176,6 @@
     word-break: break-word;
     color: var(--text-0);
     font-size: 13px;
-  }
-
-  .cursor {
-    display: inline-block;
-    color: var(--orange-1);
-    animation: blink 0.9s step-end infinite;
-  }
-
-  @keyframes blink {
-    50% { opacity: 0; }
   }
 
   .composer {

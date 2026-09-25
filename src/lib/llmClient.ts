@@ -13,10 +13,21 @@ let clientKey = "";
 
 function isLocalEndpoint(): boolean {
   const cfg = app.llmConfig;
+
+  // Локальные провайдеры — те, что не требуют API-ключа
   const isLocalProvider =
-    cfg.provider === "llama-sidecar" || cfg.provider === "ollama";
+    cfg.provider === "llama-sidecar" ||
+    cfg.provider === "ollama" ||
+    cfg.provider === "lmstudio";
+
+  // URL указывает на localhost, loopback или локальную сеть
   const isLocalUrl =
-    cfg.baseURL.includes("127.0.0.1") || cfg.baseURL.includes("localhost");
+    cfg.baseURL.includes("127.0.0.1") ||
+    cfg.baseURL.includes("localhost") ||
+    /^http:\/\/192\.168\.\d+\.\d+/.test(cfg.baseURL) ||
+    /^http:\/\/10\.\d+\.\d+\.\d+/.test(cfg.baseURL) ||
+    /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/.test(cfg.baseURL);
+
   return isLocalProvider || isLocalUrl;
 }
 

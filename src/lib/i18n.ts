@@ -35,13 +35,15 @@ const ru: Dict = {
   "provider.model": "Модель",
   "provider.modelPlaceholder": "gpt-4o-mini / qwen3:4b",
   "provider.localWarning": "Для облачного провайдера не задан API-ключ",
+  "provider.test": "Проверить подключение",
+  "provider.testing": "Проверяю...",
+  "provider.testHint": "Отправляет запрос к /v1/models и показывает список доступных моделей.",
+  "provider.modelsAvailable": "Получено моделей: {n}. Выберите из списка.",
 
   // Локальные модели
   "local.title": "Локальные модели",
   "local.dir": "Папка с моделями (.gguf)",
   "local.port": "Порт",
-  "local.serverUrl": "Адрес сервера",
-  "local.serverUrlHint": "Без порта: http://127.0.0.1 для локального, http://192.168.1.100 для удалённого",
   "local.detect": "Проверить OpenAI-совместимый сервер",
   "local.cannotStartRemote": "Удалённый сервер запускается вручную на своей машине",
   "local.running": "работает · PID {pid}",
@@ -138,6 +140,11 @@ const ru: Dict = {
   "status.localApiDetected": "Подключено к {url} ({count} моделей)",
   "status.localApiNotResponding": "Сервер не отвечает: {url}",
   "status.exportDirSet": "Папка экспорта: {dir}",
+  "status.providerUrlEmpty": "Base URL не задан — заполните поле выше.",
+  "status.providerChecking": "Проверяю сервер: {url}...",
+  "status.providerReachable": "Сервер отвечает: {url} ({count} моделей)",
+  "status.providerUnreachable": "Сервер не отвечает: {url}",
+  "status.providerCheckError": "Ошибка проверки: {msg}",
 
   // Вьюпорт
   "viewport.play": "▶ Играть",
@@ -183,14 +190,15 @@ const en: Dict = {
   "provider.model": "Model",
   "provider.modelPlaceholder": "gpt-4o-mini / qwen3:4b",
   "provider.localWarning": "No API key configured for cloud provider",
+  "provider.test": "Test connection",
+  "provider.testing": "Testing...",
+  "provider.testHint": "Sends a request to /v1/models and lists the available models.",
+  "provider.modelsAvailable": "Models received: {n}. Pick from the list.",
 
   // Local models
   "local.title": "Local models",
   "local.dir": "Models folder (.gguf)",
   "local.port": "Port",
-  "local.serverUrl": "Server URL",
-  "local.serverUrlHint":
-    "Without port: http://127.0.0.1 for local, http://192.168.1.100 for remote",
   "local.detect": "Check OpenAI-compatible server",
   "local.cannotStartRemote":
     "Remote server must be started manually on its own machine",
@@ -289,6 +297,11 @@ const en: Dict = {
   "status.localApiDetected": "Connected to {url} ({count} models)",
   "status.localApiNotResponding": "Server is not responding: {url}",
   "status.exportDirSet": "Export folder: {dir}",
+  "status.providerUrlEmpty": "Base URL is empty — fill in the field above.",
+  "status.providerChecking": "Checking server: {url}...",
+  "status.providerReachable": "Server responds: {url} ({count} models)",
+  "status.providerUnreachable": "Server is not responding: {url}",
+  "status.providerCheckError": "Check error: {msg}",
 
   // Viewport
   "viewport.play": "▶ Play",

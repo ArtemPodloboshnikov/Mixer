@@ -24,6 +24,12 @@
   let checking = $state(false);
   let downloading = $state(false);
   let downloadPercent = $state(0);
+  let providerChecking = $state(false);
+  /** Список моделей, полученный от сервера после проверки подключения. */
+  let availableModels = $state<string[]>([]);
+
+  /** Показывать ли Dropdown — только если список не пуст. */
+  const hasModelList = $derived(availableModels.length > 0);
 
   const providers: { value: LlmProvider; label: string; baseURL: string }[] = [
     {
@@ -59,9 +65,9 @@
   ];
 
   const serverPresets = [
-    { name: "Ollama", url: "http://127.0.0.1", port: 11434 },
-    { name: "LM Studio", url: "http://127.0.0.1", port: 1234 },
-    { name: "llama-server", url: "http://127.0.0.1", port: 8080 },
+    { name: "llama-server", port: 8080 },
+    { name: "Ollama", port: 11434 },
+    { name: "LM Studio", port: 1234 },
   ];
 
   async function checkUpdates() {
@@ -97,6 +103,58 @@
     }
   }
 
+  async function testProvider() {
+    const url = app.llmConfig.baseURL.trim().replace(/\/+$/, "");
+    if (!url) {
+      app.setStatus(t("status.providerUrlEmpty"), "error");
+      return;
+    }
+
+    providerChecking = true;
+    app.setStatus(t("status.providerChecking", { url }), "info");
+
+    try {
+      // checkLocalApi ждёт базовый URL без /v1 — убираем суффикс
+      const base = url.endsWith("/v1") ? url.slice(0, -3) : url;
+      const result = await checkLocalApi(base);
+
+      if (result.available) {
+        // Сохраняем список моделей для Dropdown
+        availableModels = result.models;
+
+        // Если текущая модель не из списка — подставляем первую
+        if (
+          result.models.length > 0 &&
+          !result.models.includes(app.llmConfig.model)
+        ) {
+          app.llmConfig.model = result.models[0];
+        }
+
+        app.setStatus(
+          t("status.providerReachable", {
+            url,
+            count: result.models.length,
+          }),
+          "success"
+        );
+      } else {
+        availableModels = [];
+        app.setStatus(
+          t("status.providerUnreachable", { url }),
+          "error"
+        );
+      }
+    } catch (e: any) {
+      availableModels = [];
+      app.setStatus(
+        t("status.providerCheckError", { msg: e?.message ?? String(e) }),
+        "error"
+      );
+    } finally {
+      providerChecking = false;
+    }
+  }
+
   /** Является ли текущий провайдер локальным */
   function isLocalProvider(): boolean {
     return (
@@ -110,14 +168,11 @@
     app.llmConfig.provider = value;
     if (prov) app.llmConfig.baseURL = prov.baseURL;
 
+    availableModels = [];
     // Локальные провайдеры не используют API-ключ
-    if (value === "llama-sidecar" || value === "ollama") {
+    if (isLocalProvider()) {
       app.llmConfig.apiKey = "";
     }
-
-    // Синхронизируем порт в состоянии в зависимости от выбора
-    if (value === "llama-sidecar") app.localApiPort = 8080;
-    if (value === "ollama") app.localApiPort = 11434;
   }
 
   async function refreshLocalModels() {
@@ -162,7 +217,6 @@
   /** Запуск внешнего OpenAI-совместимого сервера (Ollama) */
   async function launchLocalApi(provider: "ollama" | "lmstudio") {
     const base = app.localApiBase;
-    const local = isLocalHost(app.localApiUrl);
 
     app.setStatus(t("status.localApiChecking", { url: base }), "info");
     const ok = await checkLocalApi(base);
@@ -178,8 +232,11 @@
     app.llmConfig.provider = provider;
     app.llmConfig.baseURL = `${base}/v1`;
 
-    if (ok.models.length > 0 && !app.llmConfig.model) {
-      app.llmConfig.model = ok.models[0];
+    if (ok.models.length > 0) {
+      availableModels = ok.models;
+      if (!ok.models.includes(app.llmConfig.model)) {
+        app.llmConfig.model = ok.models[0];
+      }
     }
 
     app.setStatus(
@@ -190,7 +247,7 @@
       "success"
     );
 
-    if (provider === "ollama" && local && app.runningPid == null) {
+    if (provider === "ollama" && app.runningPid == null) {
       try {
         const info = await startOllama(app.llmConfig.model, app.localApiPort);
         app.runningPid = info.pid;
@@ -199,15 +256,6 @@
           "success"
         );
       } catch {}
-    }
-  }
-
-  function isLocalHost(url: string): boolean {
-    try {
-      const u = new URL(url);
-      return u.hostname === "127.0.0.1" || u.hostname === "localhost";
-    } catch {
-      return false;
     }
   }
 
@@ -313,11 +361,39 @@
 
       <div class="field">
         <label class="label" for="model">{t("provider.model")}</label>
-        <input
-          id="model"
-          bind:value={app.llmConfig.model}
-          placeholder={t("provider.modelPlaceholder")}
-        />
+
+        {#if hasModelList}
+          <Dropdown
+            bind:value={app.llmConfig.model}
+            options={availableModels}
+            placeholder={t("provider.modelPlaceholder")}
+            minWidth="100%"
+            openDown
+          />
+        {:else}
+          <input
+            id="model"
+            bind:value={app.llmConfig.model}
+            placeholder={t("provider.modelPlaceholder")}
+          />
+        {/if}
+
+        {#if hasModelList}
+          <div class="hint">
+            {t("provider.modelsAvailable", { n: availableModels.length })}
+          </div>
+        {/if}
+      </div>
+
+      <div class="field">
+        <button
+          class="btn test-provider-btn"
+          onclick={testProvider}
+          disabled={providerChecking}
+        >
+          {providerChecking ? t("provider.testing") : t("provider.test")}
+        </button>
+        <div class="hint">{t("provider.testHint")}</div>
       </div>
     </section>
 
@@ -360,27 +436,13 @@
 
       <!-- ============ Порт и пресеты ============ -->
       <div class="field">
-        <label class="label" for="localurl">{t("local.serverUrl")}</label>
-        <input
-          id="localurl"
-          type="text"
-          bind:value={app.localApiUrl}
-          placeholder="http://127.0.0.1"
-        />
-        <div class="hint">{t("local.serverUrlHint")}</div>
-      </div>
-
-      <div class="field">
         <label class="label" for="localport">{t("local.port")}</label>
         <div class="port-row">
           {#each serverPresets as preset}
             <button
               class="btn btn-ghost port-preset"
-              class:active={app.localApiUrl === preset.url && app.localApiPort === preset.port}
-              onclick={() => {
-                app.localApiUrl = preset.url;
-                app.localApiPort = preset.port;
-              }}
+              class:active={app.localApiPort === preset.port}
+              onclick={() => app.localApiPort = preset.port}
               type="button"
             >
               {preset.name}
