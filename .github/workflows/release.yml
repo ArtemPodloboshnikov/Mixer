@@ -50,7 +50,6 @@ jobs:
           $llamaVersion = "${{ env.LLAMA_CPP_VERSION }}"
           $cudaVersion = "${{ env.LLAMA_CPP_CUDA }}"
 
-          # ---- 1. Скачиваем основной архив ----
           $url = "https://github.com/ggml-org/llama.cpp/releases/download/$llamaVersion/llama-$llamaVersion-bin-win-cuda-$cudaVersion-x64.zip"
           Write-Host "Downloading: $url"
           $zip = "$env:TEMP\llama-cpp.zip"
@@ -59,12 +58,11 @@ jobs:
           $extract = "$env:TEMP\llama-cpp"
           Expand-Archive -Path $zip -DestinationPath $extract -Force
 
-          # ---- 2. Создаём папку binaries ----
           New-Item -ItemType Directory -Force -Path "src-tauri/binaries" | Out-Null
 
-          # ---- 3. Копируем только нужные файлы ----
           $needed = @(
             "llama.dll",
+            "llama-server-impl.dll",
             "ggml.dll",
             "ggml-base.dll",
             "ggml-cuda.dll",
@@ -81,19 +79,16 @@ jobs:
             }
           }
 
-          # Все ggml-cpu-*.dll — на случай разных процессоров
           Get-ChildItem "$extract\ggml-cpu-*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
             Copy-Item $_.FullName -Destination "src-tauri/binaries/"
             Write-Host "  copied: $($_.Name)"
           }
 
-          # Если есть отдельный ggml-cpu.dll — копируем и его
           if (Test-Path "$extract\ggml-cpu.dll") {
             Copy-Item "$extract\ggml-cpu.dll" -Destination "src-tauri/binaries/"
             Write-Host "  copied: ggml-cpu.dll"
           }
 
-          # ---- 4. Копируем llama-server и переименовываем под target triple ----
           $serverExe = Get-ChildItem "$extract\llama-server*.exe" | Select-Object -First 1
           if (-not $serverExe) {
             throw "llama-server.exe не найден в архиве"
@@ -101,7 +96,6 @@ jobs:
           Copy-Item $serverExe.FullName -Destination "src-tauri/binaries/llama-server-x86_64-pc-windows-msvc.exe"
           Write-Host "  copied llama-server as llama-server-x86_64-pc-windows-msvc.exe"
 
-          # ---- 5. Отладка ----
           Write-Host ""
           Write-Host "=== src-tauri/binaries ==="
           Get-ChildItem "src-tauri/binaries" | Format-Table Name, Length
@@ -115,7 +109,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Mixer ${{ github.ref_name }}"
-          releaseBody: "See the assets below for changes."
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true

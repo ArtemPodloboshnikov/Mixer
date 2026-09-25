@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "mixer",
+  "productName": "Mixer",
   "version": "1.0.0",
   "identifier": "com.mixer.editor",
   "build": {
@@ -30,8 +30,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
     "externalBin": [
       "binaries/llama-server"
     ],
@@ -48,7 +53,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyRTg0MzFEM0JGMEJEMzUKUldRMXZmQTdIVVBvRWhnUE9rR1h2N3VsWFA0N1ArT0xFRDExV1hBNk5MSXRVbU9sNlM3cUc0eVkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1QzhBOTVCNjVDMzBBQzUKUldURkNzTmxXNm5JZFdUYW9rNHQwU2djU1JiNkRIeHo5ck1JZTJXMTRYSVFvU0NGODRuOHpiZGEK",
       "endpoints": [
         "https://github.com/ArtemPodloboshnikov/Mixer/releases/latest/download/latest.json"
       ],
