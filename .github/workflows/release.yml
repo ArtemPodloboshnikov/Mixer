@@ -5,6 +5,21 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to build"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - windows-latest
+          - ubuntu-22.04
+          - macos-latest
+      tag:
+        description: "Release tag (e.g., v1.0.0)"
+        required: true
+        type: string
 
 env:
   LLAMA_CPP_VERSION: "b11200"
@@ -31,26 +46,48 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
+      # ============================================================
+      #  ФИЛЬТР: пропускаем платформы, которые не выбраны вручную
+      # ============================================================
+      - name: Check if this platform should run
+        id: should_run
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.platform }}" = "all" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.platform }}" = "${{ matrix.platform }}" ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+            echo "Skipping ${{ matrix.platform }} (only ${{ inputs.platform }} requested)"
+          fi
+
       - name: Checkout
+        if: steps.should_run.outputs.run == 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node
+        if: steps.should_run.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
       - name: Setup Rust
+        if: steps.should_run.outputs.run == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
 
       - name: Cache Rust
+        if: steps.should_run.outputs.run == 'true'
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: steps.should_run.outputs.run == 'true' && matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -60,13 +97,14 @@ jobs:
             patchelf
 
       - name: Install frontend dependencies
+        if: steps.should_run.outputs.run == 'true'
         run: npm ci
 
       # ============================================================
       #  WINDOWS: CUDA-сборка llama.cpp
       # ============================================================
       - name: Download llama.cpp (Windows)
-        if: matrix.platform == 'windows-latest'
+        if: steps.should_run.outputs.run == 'true' && matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           $llamaVersion = "${{ env.LLAMA_CPP_VERSION }}"
@@ -92,7 +130,7 @@ jobs:
       #  LINUX: CPU-сборка llama.cpp
       # ============================================================
       - name: Download llama.cpp (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: steps.should_run.outputs.run == 'true' && matrix.platform == 'ubuntu-22.04'
         shell: bash
         run: |
           LLAMA_VERSION="${{ env.LLAMA_CPP_VERSION }}"
@@ -101,16 +139,13 @@ jobs:
 
           mkdir -p /tmp/llama-cpp
           curl -L -o /tmp/llama-cpp.tar.gz "$URL"
-          mkdir -p /tmp/llama-cpp
           tar -xzf /tmp/llama-cpp.tar.gz -C /tmp/llama-cpp
 
           mkdir -p src-tauri/binaries
 
-          # Копируем все .so и llama-server
           find /tmp/llama-cpp -name "*.so*" -exec cp {} src-tauri/binaries/ \;
           find /tmp/llama-cpp -name "llama-server" -exec cp {} src-tauri/binaries/ \;
 
-          # Переименовываем под target triple Tauri
           mv src-tauri/binaries/llama-server src-tauri/binaries/llama-server-x86_64-unknown-linux-gnu
           chmod +x src-tauri/binaries/llama-server-x86_64-unknown-linux-gnu
 
@@ -121,7 +156,7 @@ jobs:
       #  MACOS: arm64-сборка llama.cpp (Apple Silicon)
       # ============================================================
       - name: Download llama.cpp (macOS)
-        if: matrix.platform == 'macos-latest'
+        if: steps.should_run.outputs.run == 'true' && matrix.platform == 'macos-latest'
         shell: bash
         run: |
           LLAMA_VERSION="${{ env.LLAMA_CPP_VERSION }}"
@@ -130,16 +165,13 @@ jobs:
 
           mkdir -p /tmp/llama-cpp
           curl -L -o /tmp/llama-cpp.tar.gz "$URL"
-          mkdir -p /tmp/llama-cpp
           tar -xzf /tmp/llama-cpp.tar.gz -C /tmp/llama-cpp
 
           mkdir -p src-tauri/binaries
 
-          # Копируем все .dylib и llama-server
           find /tmp/llama-cpp -name "*.dylib" -exec cp {} src-tauri/binaries/ \;
           find /tmp/llama-cpp -name "llama-server" -exec cp {} src-tauri/binaries/ \;
 
-          # Переименовываем под target triple Tauri
           mv src-tauri/binaries/llama-server src-tauri/binaries/llama-server-aarch64-apple-darwin
           chmod +x src-tauri/binaries/llama-server-aarch64-apple-darwin
 
@@ -147,18 +179,127 @@ jobs:
           ls -la src-tauri/binaries/
 
       # ============================================================
-      #  BUILD
+      #  BUILD AND RELEASE (без latest.json — сделаем вручную)
       # ============================================================
       - name: Build and release
+        if: steps.should_run.outputs.run == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPIMAGE_EXTRACT_AND_RUN: 1
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Mixer ${{ github.ref_name }}"
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          releaseName: "Mixer ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: true
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
+
+      # ============================================================
+      #  DOWNLOAD EXISTING latest.json
+      # ============================================================
+      - name: Download existing latest.json
+        if: steps.should_run.outputs.run == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          mkdir -p "$RUNNER_TEMP/latest-old"
+          if gh release download "$TAG" \
+               --pattern "latest.json" \
+               --dir "$RUNNER_TEMP/latest-old" \
+               --clobber 2>/dev/null; then
+            echo "Existing latest.json downloaded"
+            cat "$RUNNER_TEMP/latest-old/latest.json"
+          else
+            echo "No existing latest.json found — creating empty stub"
+            echo '{"version":"0.0.0","notes":"","platforms":{}}' > "$RUNNER_TEMP/latest-old/latest.json"
+          fi
+
+      # ============================================================
+      #  MERGE AND UPLOAD latest.json (Unix: Linux + macOS)
+      # ============================================================
+      - name: Merge and upload latest.json (Unix)
+        if: steps.should_run.outputs.run == 'true' && matrix.platform != 'windows-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
+          NEW_JSON=$(find src-tauri/target/release/bundle -name "latest.json" -type f | head -n 1)
+
+          if [ -z "$NEW_JSON" ] || [ ! -f "$NEW_JSON" ]; then
+            echo "No new latest.json generated — skipping merge"
+            exit 0
+          fi
+
+          echo "Merging:"
+          echo "  old: $RUNNER_TEMP/latest-old/latest.json"
+          echo "  new: $NEW_JSON"
+
+          jq -s '.[0] as $old | .[1] as $new |
+                 $new + {platforms: (($old.platforms // {}) * ($new.platforms // {}))}' \
+             "$RUNNER_TEMP/latest-old/latest.json" "$NEW_JSON" \
+             > "$RUNNER_TEMP/latest-merged.json"
+
+          echo "=== Merged latest.json ==="
+          cat "$RUNNER_TEMP/latest-merged.json"
+
+          gh release upload "$TAG" "$RUNNER_TEMP/latest-merged.json" --clobber
+          echo "latest.json uploaded to release $TAG"
+
+      # ============================================================
+      #  MERGE AND UPLOAD latest.json (Windows)
+      # ============================================================
+      - name: Merge and upload latest.json (Windows)
+        if: steps.should_run.outputs.run == 'true' && matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
+          $newJson = Get-ChildItem -Recurse -Path "src-tauri\target\release\bundle" -Filter "latest.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if (-not $newJson) {
+            Write-Host "No new latest.json generated — skipping merge"
+            exit 0
+          }
+
+          Write-Host "Merging:"
+          Write-Host "  old: $env:RUNNER_TEMP\latest-old\latest.json"
+          Write-Host "  new: $($newJson.FullName)"
+
+          $old = Get-Content "$env:RUNNER_TEMP\latest-old\latest.json" -Raw | ConvertFrom-Json
+          $new = Get-Content $newJson.FullName -Raw | ConvertFrom-Json
+
+          $mergedPlatforms = @{}
+          if ($old.platforms) {
+            $old.platforms.PSObject.Properties | ForEach-Object {
+              $mergedPlatforms[$_.Name] = $_.Value
+            }
+          }
+          if ($new.platforms) {
+            $new.platforms.PSObject.Properties | ForEach-Object {
+              $mergedPlatforms[$_.Name] = $_.Value
+            }
+          }
+
+          $merged = @{
+            version = $new.version
+            notes = $new.notes
+            pub_date = $new.pub_date
+            platforms = $mergedPlatforms
+          }
+
+          $merged | ConvertTo-Json -Depth 10 | Out-File -Encoding utf8 "$env:TEMP\latest-merged.json"
+
+          Write-Host "=== Merged latest.json ==="
+          Get-Content "$env:TEMP\latest-merged.json"
+
+          gh release upload $tag "$env:TEMP\latest-merged.json" --clobber
+          Write-Host "latest.json uploaded to release $tag"
