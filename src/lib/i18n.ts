@@ -140,12 +140,16 @@ const ru: Dict = {
   "status.providerReachable": "Сервер отвечает: {url} ({count} модели)",
   "status.providerUnreachable": "Сервер не отвечает: {url}",
   "status.providerCheckError": "Ошибка проверки: {msg}",
+  "status.nothingSelected": "Ничего не выделено",
+  "status.clearRange": "Сбросить отрезок",
+  "status.nodeSelected": "Узел выделен",
 
   // Вьюпорт
   "viewport.play": "▶ Играть",
   "viewport.pause": "⏸ Пауза",
   "viewport.animation": "— анимация —",
   "viewport.noModel": "нет модели",
+  "viewport.nodes": "Узлы",
 
   // Ошибки
   "error.noApiKey":
@@ -292,12 +296,16 @@ const en: Dict = {
   "status.providerReachable": "Server responds: {url} ({count} models)",
   "status.providerUnreachable": "Server is not responding: {url}",
   "status.providerCheckError": "Check error: {msg}",
+  "status.nothingSelected": "Nothing selected",
+  "status.clearRange": "Clear range",
+  "status.nodeSelected": "Node selected",
 
   // Viewport
   "viewport.play": "▶ Play",
   "viewport.pause": "⏸ Pause",
   "viewport.animation": "— animation —",
   "viewport.noModel": "no model",
+  "viewport.nodes": "Nodes",
 
   // Errors
   "error.noApiKey": "No API key configured for cloud provider. Open settings.",

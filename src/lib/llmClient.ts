@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { app, type ChatMessage } from "./stores.svelte";
 import { exportGlb, type ExportPayload } from "./tauriApi";
-import { buildReferenceBlock } from "./referenceDescriber";
+import { buildReferenceBlock, extractNodeGeometry } from "./referenceDescriber";
 import { t } from "./i18n";
 import { pickAndAddModel } from "./modelLoader";
 
@@ -14,26 +14,19 @@ let clientKey = "";
 
 function isLocalEndpoint(): boolean {
   const cfg = app.llmConfig;
-
-  // Локальные провайдеры — те, что не требуют API-ключа
   const isLocalProvider =
     cfg.provider === "llama-sidecar" ||
     cfg.provider === "ollama" ||
     cfg.provider === "lmstudio";
-
-  // URL указывает на localhost, loopback или локальную сеть
   const isLocalUrl =
     cfg.baseURL.includes("127.0.0.1") ||
     cfg.baseURL.includes("localhost") ||
     /^http:\/\/192\.168\.\d+\.\d+/.test(cfg.baseURL) ||
     /^http:\/\/10\.\d+\.\d+\.\d+/.test(cfg.baseURL) ||
     /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/.test(cfg.baseURL);
-
   return isLocalProvider || isLocalUrl;
 }
 
-// Таймаут 10 минут — локальные модели на CPU могут генерировать
-// ответ дольше 2-3 минут, стандартных 120 секунд недостаточно.
 const REQUEST_TIMEOUT_MS = 600_000;
 
 function getClient(): OpenAI {
@@ -59,7 +52,7 @@ function getClient(): OpenAI {
 }
 
 // =====================================================================
-//  СИСТЕМНЫЙ ПРОМПТ — ТРЕБУЕТ JSON-МАНИФЕСТ
+//  СИСТЕМНЫЙ ПРОМПТ
 // =====================================================================
 
 const SYSTEM_PROMPT = `You are a procedural 3D model generator for the "Mixer" editor.
@@ -101,7 +94,101 @@ Rules:
 - Never output text before or after the JSON.`;
 
 // =====================================================================
-//  ПАРСИНГ JSON-МАНИФЕСТА ИЗ ОТВЕТА
+//  КОНТЕКСТ АКТИВНОЙ МОДЕЛИ
+// =====================================================================
+
+/**
+ * Собирает системный промпт: базовые правила + геометрия активной модели.
+ * Референсы всегда включены.
+ */
+function buildSystemContent(): string {
+  const parts: string[] = [SYSTEM_PROMPT];
+
+  const id = app.activeModelId;
+  const gltfRef = id ? app.getGltf(id) : null;
+  const selectedNode = app.selectedNodeName;
+  const hasNode = !!selectedNode && !!gltfRef;
+  const hasRange = app.hasRange;
+
+  // ============================================================
+  //  АКТИВНАЯ МОДЕЛЬ
+  //  Уходит ТОЛЬКО если выбран узел ИЛИ задан отрезок анимации.
+  //  Если ничего не выбрано — активная модель НЕ отправляется.
+  // ============================================================
+  if (gltfRef && (hasNode || hasRange)) {
+    const fullGeometry = extractNodeGeometry(gltfRef, null);
+    const geometryBlock = fullGeometry
+      .map(
+        (g) =>
+          `    {\n      "name": "${g.name}",\n      "positions": [${g.positions.join(",")}],\n      "indices": [${g.indices.join(",")}]\n    }`
+      )
+      .join(",\n");
+
+    let scopeBlock = "";
+
+    if (hasNode && hasRange) {
+      scopeBlock = `The user has selected node "${selectedNode}" AND a time range.
+    - Modify ONLY node "${selectedNode}".
+    - Apply changes ONLY within the given time range.
+    - The full model geometry is provided below for context.`;
+    } else if (hasNode) {
+      scopeBlock = `The user has selected node "${selectedNode}".
+      - Modify ONLY node "${selectedNode}".
+      - The full model geometry is provided below for context.`;
+    } else if (hasRange) {
+      scopeBlock = `The user has selected a time range (no specific node).
+      - Modify animation for ALL nodes within the given time range.
+      - The full model geometry is provided below for context.`;
+    }
+
+    parts.push(`
+
+    Current model context:
+    ${scopeBlock}
+
+    {
+      "nodes": [
+    ${geometryBlock}
+      ],
+      "animations": []
+    }`);
+  } else {
+    // Ничего не выбрано — создание новой модели
+    parts.push(`
+
+    The user wants to CREATE A NEW MODEL from scratch.
+    Ignore any existing scene geometry.`);
+  }
+
+  // ============================================================
+  //  ОТРЕЗОК АНИМАЦИИ
+  // ============================================================
+  if (hasRange) {
+    const start = app.rangeStart!.toFixed(3);
+    const end = app.rangeEnd!.toFixed(3);
+    parts.push(`
+
+    Animation scope:
+    - Time range: [${start}s, ${end}s]
+    ${hasNode ? `- Target node: "${selectedNode}"` : `- Applies to all nodes`}`);
+  }
+
+  // ============================================================
+  //  РЕФЕРЕНСЫ — уходят ВСЕГДА
+  // ============================================================
+  const referenceBlock = buildReferenceBlock(
+    app.models,
+    app.modelDescriptions
+  );
+  if (referenceBlock) {
+    parts.push(referenceBlock);
+  }
+
+  return parts.join("");
+}
+
+// =====================================================================
+//  ПАРСИНГ JSON-МАНИФЕСТА
 // =====================================================================
 
 interface ManifestNode {
@@ -128,23 +215,16 @@ interface Manifest {
   animations?: ManifestAnimation[];
 }
 
-/**
- * Извлекает JSON-манифест из ответа LLM.
- * Модель иногда добавляет ```json ... ``` или лишний текст.
- */
 function tryParseManifest(text: string): Manifest | null {
   if (!text) return null;
 
   let cleaned = text.trim();
-
-  // Убираем markdown-обёртки
   cleaned = cleaned
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/```\s*$/i, "")
     .trim();
 
-  // Если модель написала текст до JSON — вырезаем первую { ... } скобку
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace > firstBrace) {
@@ -160,10 +240,6 @@ function tryParseManifest(text: string): Manifest | null {
   }
 }
 
-/**
- * Экспортирует манифест в GLB через Rust-команду.
- * Возвращает путь к сохранённому файлу или null при ошибке.
- */
 async function exportManifest(manifest: Manifest): Promise<string | null> {
   if (!app.exportDir) {
     app.setStatus(t("status.exportDirMissing"), "error");
@@ -220,21 +296,13 @@ export async function sendMessage(
   };
   app.messages.push(assistantMsg);
 
-  const referenceBlock = buildReferenceBlock(
-    app.models,
-    app.modelDescriptions
-  );
-
-  const systemContent = SYSTEM_PROMPT + referenceBlock;
-
   const apiMessages = [
-    { role: "system" as const, content: systemContent },
+    { role: "system" as const, content: buildSystemContent() },
     ...app.messages
       .filter((m) => !m.streaming)
       .map((m) => ({ role: m.role, content: m.content })),
   ];
 
-  // Создаём контроллер ДО запроса, чтобы кнопка "Стоп" могла его прервать.
   const controller = new AbortController();
   app.activeAbort = controller;
 
@@ -271,7 +339,6 @@ export async function sendMessage(
 
     assistantMsg.streaming = false;
 
-    // ---------- Прервано пользователем ----------
     if (controller.signal.aborted) {
       wasAborted = true;
       if (!assistantMsg.content) {
@@ -284,7 +351,6 @@ export async function sendMessage(
       return;
     }
 
-    // ---------- Пустой ответ ----------
     if (!receivedAnyToken) {
       assistantMsg.content = t("chat.emptyResponse");
       app.setStatus(t("status.emptyResponse"), "error");
@@ -292,11 +358,9 @@ export async function sendMessage(
       return;
     }
 
-    // ---------- Нормальный ответ ----------
     app.setStatus(t("status.responseReceived"), "success");
     app.messages = [...app.messages];
 
-    // Пробуем распарсить ответ как JSON-манифест и экспортировать GLB
     const manifest = tryParseManifest(assistantMsg.content);
     if (manifest && manifest.nodes.length > 0) {
       app.setStatus(
@@ -305,7 +369,7 @@ export async function sendMessage(
       );
       const outPath = await exportManifest(manifest);
       if (outPath) {
-        await pickAndAddModel(false, outPath)
+        await pickAndAddModel(false, outPath);
         app.setStatus(
           t("status.glbSaved", { path: outPath }),
           "success"
@@ -315,7 +379,6 @@ export async function sendMessage(
   } catch (err: any) {
     assistantMsg.streaming = false;
 
-    // OpenAI SDK бросает APIUserAbortError при abort.
     const aborted =
       err?.name === "AbortError" ||
       err?.name === "APIUserAbortError" ||
@@ -352,7 +415,6 @@ export async function sendMessage(
 //  УПРАВЛЕНИЕ ГЕНЕРАЦИЕЙ
 // =====================================================================
 
-/** Прерывает текущий запрос к LLM. */
 export function stopGeneration(): void {
   if (app.activeAbort) {
     app.activeAbort.abort();
@@ -361,7 +423,6 @@ export function stopGeneration(): void {
 }
 
 export function clearChat() {
-  // Если что-то генерируется — сначала остановим
   if (app.activeAbort) stopGeneration();
   app.messages = [];
 }

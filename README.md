@@ -4,7 +4,9 @@
   <img src="/src-tauri/icons/128x128@2x.png" alt="App logo" />
 </p>
 
-![Mixer — main window](/screenshots/app.png)
+<p align="center">
+    <img src="/screenshots/app.png" alt="Main window" />
+</p>
 
 ---
 
@@ -35,15 +37,13 @@ Choose the installer for your platform (Windows `.msi` / `.exe`, Linux `.deb` / 
 ### Models and animations
 - List of loaded models with names and tags.
 - **Reference models** — non-editable models passed to the LLM as style and structure inspiration.
-- Custom dropdown for selecting animations from a loaded GLB.
-- Play/Pause button for animation playback.
-- Animations start automatically when switching.
+- Select a time segment of the animation and edit it using LLM.
+- Select a node in the 3D model and edit only that node via LLM.
+- Select a node and a time segment, and change the animation of the selected node within the selected time segment via LLM.
 
 ### LLM assistant
 - Built-in chat with streaming output.
-- Stop generation with Esc or the ⏹ button.
 - Providers: **OpenAI**, **Anthropic**, **OpenRouter**, **llama.cpp (sidecar)**, **Ollama**, **LM Studio**.
-- Automatic detection of local servers on standard ports.
 - Manual port input field for custom configurations.
 
 ### Local models

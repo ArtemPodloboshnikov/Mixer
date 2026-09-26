@@ -216,3 +216,83 @@ export function buildReferenceBlock(
 
   return `\n\nReference models for style and structure inspiration:\n\n${parts.join("\n\n")}`;
 }
+
+/**
+ * Возвращает геометрию указанного узла (или всей сцены, если узел не найден)
+ * в формате JSON-манифеста. Используется для передачи активной модели в LLM.
+ */
+export function extractNodeGeometry(
+  gltf: any,
+  nodeName: string | null
+): {
+  name: string;
+  positions: number[];
+  indices: number[];
+}[] {
+  if (!gltf || !gltf.scene) return [];
+
+  const targets: THREE.Mesh[] = [];
+
+  if (nodeName) {
+    // Ищем узел с указанным именем и все меши внутри него
+    gltf.scene.traverse((obj: THREE.Object3D) => {
+      if (obj.name === nodeName) {
+        obj.traverse((child: THREE.Object3D) => {
+          if ((child as THREE.Mesh).isMesh) {
+            targets.push(child as THREE.Mesh);
+          }
+        });
+      }
+    });
+  }
+
+  // Если узел не выбран или не найден — берём всю сцену
+  if (targets.length === 0) {
+    gltf.scene.traverse((obj: THREE.Object3D) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        targets.push(obj as THREE.Mesh);
+      }
+    });
+  }
+
+  const result: {
+    name: string;
+    positions: number[];
+    indices: number[];
+  }[] = [];
+
+  for (const mesh of targets) {
+    const geom = mesh.geometry as THREE.BufferGeometry;
+    if (!geom) continue;
+
+    const posAttr = geom.getAttribute("position") as THREE.BufferAttribute;
+    if (!posAttr) continue;
+
+    const positions: number[] = [];
+    const tmp = new THREE.Vector3();
+    for (let i = 0; i < posAttr.count; i++) {
+      tmp.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+      mesh.localToWorld(tmp);
+      positions.push(
+        Math.round(tmp.x * 1000) / 1000,
+        Math.round(tmp.y * 1000) / 1000,
+        Math.round(tmp.z * 1000) / 1000
+      );
+    }
+
+    let indices: number[];
+    if (geom.index) {
+      indices = Array.from(geom.index.array);
+    } else {
+      indices = Array.from({ length: posAttr.count }, (_, i) => i);
+    }
+
+    result.push({
+      name: mesh.name || "mesh",
+      positions,
+      indices,
+    });
+  }
+
+  return result;
+}

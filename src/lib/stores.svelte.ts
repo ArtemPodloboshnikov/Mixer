@@ -7,6 +7,8 @@ import { t } from "./i18n";
 
 export type AppLanguage = "ru" | "en";
 
+export type ViewportMode = "navigate" | "select";
+
 export interface ModelEntry {
   id: string;
   name: string;
@@ -62,6 +64,18 @@ class AppState {
   messages = $state<ChatMessage[]>([]);
   /** Кэш описаний моделей для передачи в LLM. */
   modelDescriptions = $state<Record<string, string>>({});
+  /** id выбранной ноды внутри gltf активной модели. */
+  selectedNodeName = $state<string | null>(null);
+  /** Реестр загруженных gltf-объектов по id модели. */
+  gltfRegistry: Record<string, any> = {};
+  /** Текущее время активной анимации (секунды). */
+  currentAnimationTime = $state(0);
+  /** Длительность активной анимации. */
+  currentAnimationDuration = $state(0);
+  /** Идёт ли скраббинг (пользователь тянет ползунок). */
+  isScrubbing = $state(false);
+  viewportMode = $state<ViewportMode>("navigate");
+  modelNodeNames = $state<string[]>([]);
 
   llmConfig = $state<LLMConfig>({
     provider: "openai",
@@ -89,10 +103,19 @@ class AppState {
 
   statusText = $state<string>("");
   statusKind = $state<"info" | "error" | "success">("info");
+  /** Начало выделенного отрезка анимации (секунды). null = не задан. */
+  rangeStart = $state<number | null>(null);
+  /** Конец выделенного отрезка анимации (секунды). null = не задан. */
+  rangeEnd = $state<number | null>(null);
 
   /** Полный базовый URL локального сервера (всегда 127.0.0.1). */
   get localApiBase(): string {
     return `http://127.0.0.1:${this.localApiPort}`;
+  }
+
+  /** Есть ли выделенный отрезок. */
+  get hasRange(): boolean {
+    return this.rangeStart !== null && this.rangeEnd !== null;
   }
 
   get activeModel(): ModelEntry | undefined {
@@ -111,6 +134,7 @@ class AppState {
   removeModel(id: string) {
     const idx = this.models.findIndex((m) => m.id === id);
     if (idx === -1) return;
+    this.unregisterGltf(id)
     const [removed] = this.models.splice(idx, 1);
     URL.revokeObjectURL(removed.url);
     if (this.activeModelId === id) {
@@ -179,6 +203,32 @@ class AppState {
 
   setModelPlaying(id: string, value: boolean) {
     this.playingByModel = { ...this.playingByModel, [id]: value };
+  }
+
+  registerGltf(id: string, gltf: any) {
+    this.gltfRegistry[id] = gltf;
+  }
+
+  unregisterGltf(id: string) {
+    delete this.gltfRegistry[id];
+  }
+
+  getGltf(id: string): any {
+    return this.gltfRegistry[id];
+  }
+
+  setModelNodeNames(names: string[]) {
+    this.modelNodeNames = names;
+  }
+
+  setRange(start: number, end: number) {
+    this.rangeStart = Math.min(start, end);
+    this.rangeEnd = Math.max(start, end);
+  }
+
+  clearRange() {
+    this.rangeStart = null;
+    this.rangeEnd = null;
   }
 }
 

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  LLAMA_CPP_VERSION: "b11157"
+  LLAMA_CPP_VERSION: "b11200"
   LLAMA_CPP_CUDA: "12.4"
 
 jobs:
@@ -20,6 +20,13 @@ jobs:
         include:
           - platform: windows-latest
             args: ""
+            target: "x86_64-pc-windows-msvc"
+          - platform: ubuntu-22.04
+            args: ""
+            target: "x86_64-unknown-linux-gnu"
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
 
@@ -34,16 +41,31 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
 
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
-      - name: Install dependencies
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Download llama.cpp binaries (Windows)
+      # ============================================================
+      #  WINDOWS: CUDA-сборка llama.cpp
+      # ============================================================
+      - name: Download llama.cpp (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
@@ -58,23 +80,75 @@ jobs:
           $extract = "$env:TEMP\llama-cpp"
           Expand-Archive -Path $zip -DestinationPath $extract -Force
 
-          # Создаём папку binaries
           New-Item -ItemType Directory -Force -Path "src-tauri/binaries" | Out-Null
-
-          # Копируем ВСЕ DLL (включая ggml-cpu-*, cudart, cublas и прочие зависимости)
           Copy-Item "$extract\*.dll" -Destination "src-tauri/binaries/" -Force
-
-          # Копируем только llama-server.exe, остальные CLI-утилиты игнорируем
           Copy-Item "$extract\llama-server.exe" -Destination "src-tauri/binaries/" -Force
-
-          # Переименовываем под target triple, который ожидает Tauri
           Rename-Item "src-tauri/binaries\llama-server.exe" -NewName "llama-server-x86_64-pc-windows-msvc.exe"
 
-          # Отладка: что лежит в binaries
-          Write-Host ""
           Write-Host "=== src-tauri/binaries ==="
           Get-ChildItem "src-tauri/binaries" | Format-Table Name, Length
 
+      # ============================================================
+      #  LINUX: CPU-сборка llama.cpp
+      # ============================================================
+      - name: Download llama.cpp (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          LLAMA_VERSION="${{ env.LLAMA_CPP_VERSION }}"
+          URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/llama-${LLAMA_VERSION}-bin-ubuntu-x64.tar.gz"
+          echo "Downloading: $URL"
+
+          mkdir -p /tmp/llama-cpp
+          curl -L -o /tmp/llama-cpp.tar.gz "$URL"
+          mkdir -p /tmp/llama-cpp
+          tar -xzf /tmp/llama-cpp.tar.gz -C /tmp/llama-cpp
+
+          mkdir -p src-tauri/binaries
+
+          # Копируем все .so и llama-server
+          find /tmp/llama-cpp -name "*.so*" -exec cp {} src-tauri/binaries/ \;
+          find /tmp/llama-cpp -name "llama-server" -exec cp {} src-tauri/binaries/ \;
+
+          # Переименовываем под target triple Tauri
+          mv src-tauri/binaries/llama-server src-tauri/binaries/llama-server-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/llama-server-x86_64-unknown-linux-gnu
+
+          echo "=== src-tauri/binaries ==="
+          ls -la src-tauri/binaries/
+
+      # ============================================================
+      #  MACOS: arm64-сборка llama.cpp (Apple Silicon)
+      # ============================================================
+      - name: Download llama.cpp (macOS)
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          LLAMA_VERSION="${{ env.LLAMA_CPP_VERSION }}"
+          URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/llama-${LLAMA_VERSION}-bin-macos-arm64.tar.gz"
+          echo "Downloading: $URL"
+
+          mkdir -p /tmp/llama-cpp
+          curl -L -o /tmp/llama-cpp.tar.gz "$URL"
+          mkdir -p /tmp/llama-cpp
+          tar -xzf /tmp/llama-cpp.tar.gz -C /tmp/llama-cpp
+
+          mkdir -p src-tauri/binaries
+
+          # Копируем все .dylib и llama-server
+          find /tmp/llama-cpp -name "*.dylib" -exec cp {} src-tauri/binaries/ \;
+          find /tmp/llama-cpp -name "llama-server" -exec cp {} src-tauri/binaries/ \;
+
+          # Переименовываем под target triple Tauri
+          mv src-tauri/binaries/llama-server src-tauri/binaries/llama-server-aarch64-apple-darwin
+          chmod +x src-tauri/binaries/llama-server-aarch64-apple-darwin
+
+          echo "=== src-tauri/binaries ==="
+          ls -la src-tauri/binaries/
+
+      # ============================================================
+      #  BUILD
+      # ============================================================
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
