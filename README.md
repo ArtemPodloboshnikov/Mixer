@@ -1,4 +1,4 @@
-# Mixer
+<h1 align="center">Mixer</h1>
 
 <p align="center">
   <img src="/src-tauri/icons/128x128@2x.png" alt="App logo" />
@@ -22,7 +22,7 @@ The app is designed for local-first workflows — connect to **Ollama**, **LM St
 
 Built binaries are available in the **[Releases](https://github.com/ArtemPodloboshnikov/Mixer/releases)** section of this repository.
 
-Choose the installer for your platform (Windows `.msi` / `.exe`, Linux `.deb` / `.AppImage`, macOS `.dmg`) and follow the installer prompts.
+Choose the installer for your platform (Windows `.exe`, Linux `.deb`, macOS `.dmg`) and follow the installer prompts.
 
 ---
 
@@ -174,6 +174,29 @@ The app parses the response, extracts the JSON even if wrapped in markdown, and 
 
 ---
 
-## License
+## ❤️ Support the project
 
-MIT
+If Mixer saves you time or brings you joy, you can support its development.
+
+<details>
+<summary><b>₿ Crypto</b></summary>
+
+<br>
+
+| Network | Address |
+|---|---|
+| **Ethereum / Linea / Base / Arbitrum / BNB / OP / Polygon / Monad** | `0x714062d38022B3E8F65A932E42f29DcB911A536E` |
+| **Bitcoin** | `bc1qg22n2vxem86ekqsrpyehxvxy2v6mwgkfnarx6f` |
+| **Solana** | `4LPf8go2Yq7znK9eQML3y3UZSomNaCRYQwGaZjzVabPS` |
+| **Tron** | `TUi6WmLjPtshqGZbPW1SbvT3Vj86ADoDRJ` |
+
+</details>
+
+<details>
+<summary><b>💳 T-Bank</b></summary>
+
+<br>
+
+[Pay via T-Bank](https://t.tb.ru/pm_short/3m0r2sANeq5)
+
+</details>
