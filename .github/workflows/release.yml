@@ -179,7 +179,8 @@ jobs:
           ls -la src-tauri/binaries/
 
       # ============================================================
-      #  BUILD AND RELEASE (без latest.json — сделаем вручную)
+      #  BUILD AND RELEASE
+      #  tauri-action сам создаст и смержит latest.json
       # ============================================================
       - name: Build and release
         if: steps.should_run.outputs.run == 'true'
@@ -195,112 +196,4 @@ jobs:
           releaseName: "Mixer ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: false
           args: ${{ matrix.args }}
-
-      # ============================================================
-      #  DOWNLOAD EXISTING latest.json
-      # ============================================================
-      - name: Download existing latest.json
-        if: steps.should_run.outputs.run == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          mkdir -p "$RUNNER_TEMP/latest-old"
-          if gh release download "$TAG" \
-               --pattern "latest.json" \
-               --dir "$RUNNER_TEMP/latest-old" \
-               --clobber 2>/dev/null; then
-            echo "Existing latest.json downloaded"
-            cat "$RUNNER_TEMP/latest-old/latest.json"
-          else
-            echo "No existing latest.json found — creating empty stub"
-            echo '{"version":"0.0.0","notes":"","platforms":{}}' > "$RUNNER_TEMP/latest-old/latest.json"
-          fi
-
-      # ============================================================
-      #  MERGE AND UPLOAD latest.json (Unix: Linux + macOS)
-      # ============================================================
-      - name: Merge and upload latest.json (Unix)
-        if: steps.should_run.outputs.run == 'true' && matrix.platform != 'windows-latest'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-
-          NEW_JSON=$(find src-tauri/target/release/bundle -name "latest.json" -type f | head -n 1)
-
-          if [ -z "$NEW_JSON" ] || [ ! -f "$NEW_JSON" ]; then
-            echo "No new latest.json generated — skipping merge"
-            exit 0
-          fi
-
-          echo "Merging:"
-          echo "  old: $RUNNER_TEMP/latest-old/latest.json"
-          echo "  new: $NEW_JSON"
-
-          jq -s '.[0] as $old | .[1] as $new |
-                 $new + {platforms: (($old.platforms // {}) * ($new.platforms // {}))}' \
-             "$RUNNER_TEMP/latest-old/latest.json" "$NEW_JSON" \
-             > "$RUNNER_TEMP/latest-merged.json"
-
-          echo "=== Merged latest.json ==="
-          cat "$RUNNER_TEMP/latest-merged.json"
-
-          gh release upload "$TAG" "$RUNNER_TEMP/latest-merged.json" --clobber
-          echo "latest.json uploaded to release $TAG"
-
-      # ============================================================
-      #  MERGE AND UPLOAD latest.json (Windows)
-      # ============================================================
-      - name: Merge and upload latest.json (Windows)
-        if: steps.should_run.outputs.run == 'true' && matrix.platform == 'windows-latest'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-
-          $newJson = Get-ChildItem -Recurse -Path "src-tauri\target\release\bundle" -Filter "latest.json" -ErrorAction SilentlyContinue | Select-Object -First 1
-
-          if (-not $newJson) {
-            Write-Host "No new latest.json generated — skipping merge"
-            exit 0
-          }
-
-          Write-Host "Merging:"
-          Write-Host "  old: $env:RUNNER_TEMP\latest-old\latest.json"
-          Write-Host "  new: $($newJson.FullName)"
-
-          $old = Get-Content "$env:RUNNER_TEMP\latest-old\latest.json" -Raw | ConvertFrom-Json
-          $new = Get-Content $newJson.FullName -Raw | ConvertFrom-Json
-
-          $mergedPlatforms = @{}
-          if ($old.platforms) {
-            $old.platforms.PSObject.Properties | ForEach-Object {
-              $mergedPlatforms[$_.Name] = $_.Value
-            }
-          }
-          if ($new.platforms) {
-            $new.platforms.PSObject.Properties | ForEach-Object {
-              $mergedPlatforms[$_.Name] = $_.Value
-            }
-          }
-
-          $merged = @{
-            version = $new.version
-            notes = $new.notes
-            pub_date = $new.pub_date
-            platforms = $mergedPlatforms
-          }
-
-          $merged | ConvertTo-Json -Depth 10 | Out-File -Encoding utf8 "$env:TEMP\latest-merged.json"
-
-          Write-Host "=== Merged latest.json ==="
-          Get-Content "$env:TEMP\latest-merged.json"
-
-          gh release upload $tag "$env:TEMP\latest-merged.json" --clobber
-          Write-Host "latest.json uploaded to release $tag"
