@@ -6,8 +6,8 @@
   import { app } from "$lib/stores.svelte";
   import { t } from "$lib/i18n";
   import { getVersion } from "@tauri-apps/api/app";
-    import StatusBar from "$lib/components/StatusBar.svelte";
-    import { scanLocalModels } from "$lib/tauriApi";
+  import StatusBar from "$lib/components/StatusBar.svelte";
+  import { checkForUpdate, scanLocalModels } from "$lib/tauriApi";
 
   let { children } = $props();
 
@@ -32,6 +32,16 @@
         app.localModels = list;
       } catch {}
     }
+
+    try {
+      const updateInfo = await checkForUpdate()
+      app.updateInfo = updateInfo;
+      if (updateInfo) {
+        app.setStatus(t("settings.updateAvailable", { version: updateInfo.version }))
+      } else {
+        app.setStatus(t("settings.upToDate"), "success");
+      }
+    } catch {}
   });
 </script>
 

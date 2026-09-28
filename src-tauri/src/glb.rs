@@ -243,8 +243,9 @@ fn min_max_scalar(values: &[f32]) -> (Vec<f32>, Vec<f32>) {
     (vec![min], vec![max])
 }
 
-#[tauri::command]
-pub fn export_glb(payload: ExportPayload) -> Result<String, String> {
+/// Собирает GLB из `ExportPayload` и возвращает байты.
+/// Не трогает файловую систему.
+fn build_glb_internal(payload: &ExportPayload) -> Result<Vec<u8>, String> {
     let mut b = Builder::new();
     let mut meshes: Vec<Mesh> = Vec::new();
     let mut gltf_nodes: Vec<GltfNode> = Vec::new();
@@ -331,7 +332,7 @@ pub fn export_glb(payload: ExportPayload) -> Result<String, String> {
     let gltf = Gltf {
         asset: Asset {
             version: "2.0".to_string(),
-            generator: "magic-city-editor".to_string(),
+            generator: format!("Mixer {}", env!("CARGO_PKG_VERSION")),
         },
         scene: 0,
         scenes: vec![Scene { nodes: scene_nodes }],
@@ -351,7 +352,7 @@ pub fn export_glb(payload: ExportPayload) -> Result<String, String> {
         json_bytes.push(b' ');
     }
 
-    // Сборка GLB.
+    // Сборка GLB-контейнера.
     let total_length = 12 + 8 + json_bytes.len() as u32 + 8 + bin_length;
     let mut glb: Vec<u8> = Vec::with_capacity(total_length as usize);
 
@@ -367,9 +368,25 @@ pub fn export_glb(payload: ExportPayload) -> Result<String, String> {
     glb.extend_from_slice(b"BIN\x00");
     glb.extend_from_slice(&b.bin);
 
+    Ok(glb)
+}
+
+/// Собирает GLB и сохраняет его в файл по пути `outputDir/filename`.
+/// Возвращает полный путь к сохранённому файлу.
+#[tauri::command]
+pub fn export_glb(payload: ExportPayload) -> Result<String, String> {
+    let glb = build_glb_internal(&payload)?;
+
     let mut out_path = PathBuf::from(&payload.output_dir);
     out_path.push(&payload.filename);
     fs::write(&out_path, &glb).map_err(|e| e.to_string())?;
 
     Ok(out_path.to_string_lossy().to_string())
+}
+
+/// Собирает GLB и возвращает его байты без записи на диск.
+/// Используется для предпросмотра в JSON-панели.
+#[tauri::command]
+pub fn build_glb_bytes(payload: ExportPayload) -> Result<Vec<u8>, String> {
+    build_glb_internal(&payload)
 }

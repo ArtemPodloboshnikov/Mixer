@@ -2,7 +2,7 @@ mod convert;
 mod glb;
 mod local_llm;
 
-use glb::export_glb;
+use glb::{build_glb_bytes, export_glb};
 use local_llm::{
     check_openai_compatible, list_running_processes, scan_local_models, start_local_llm_sidecar,
     start_ollama, stop_llm_process,
@@ -19,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             export_glb,
+            build_glb_bytes,
             scan_local_models,
             start_local_llm_sidecar,
             start_ollama,

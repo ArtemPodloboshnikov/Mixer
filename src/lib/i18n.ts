@@ -7,6 +7,7 @@ const ru: Dict = {
   "common.save": "Сохранить",
   "common.builtin": "встроенный",
   "common.external": "внешняя",
+  "common.tabChat": "Чат",
 
   // Навигация
   "nav.editor": "Редактор",
@@ -67,13 +68,10 @@ const ru: Dict = {
 
   // Настройки — обновления
   "settings.updates": "Обновления",
-  "settings.checkUpdate": "Проверить обновления",
-  "settings.checking": "Проверка...",
   "settings.upToDate": "У вас последняя версия",
   "settings.updateAvailable": "Доступна версия {version}",
   "settings.installUpdate": "Установить обновление",
   "settings.downloading": "Загрузка... {percent}%",
-  "settings.updateError": "Ошибка обновления: {msg}",
   "settings.currentVersion": "Текущая версия",
 
   // Чат
@@ -151,6 +149,33 @@ const ru: Dict = {
   "viewport.noModel": "нет модели",
   "viewport.nodes": "Узлы",
 
+  // JSON панель
+  "json.title": "Импорт JSON",
+  "json.example": "Пример",
+  "json.empty": "Введите JSON",
+  "json.valid": "JSON валиден",
+  "json.summary": "{nodes} узлов",
+  "json.save": "Сохранить GLB",
+  "json.saveError": "Ошибка сохранения",
+  "json.saved": "Сохранено: {path}",
+  "json.previewName": "Предпросмотр",
+  "json.previewReady": "Предпросмотр готов",
+  "json.previewError": "Ошибка предпросмотра",
+
+  "json.err.notObject": "JSON должен быть объектом",
+  "json.err.nodesMissing": "Поле 'nodes' отсутствует или не массив",
+  "json.err.nodesEmpty": "Массив 'nodes' пустой",
+  "json.err.nodeNotObject": "nodes[{i}] должен быть объектом",
+  "json.err.nodeName": "nodes[{i}].name должен быть строкой",
+  "json.err.nodePositionsArray": "nodes[{i}].positions должен быть массивом",
+  "json.err.nodeIndicesArray": "nodes[{i}].indices должен быть массивом",
+  "json.err.positionsLength": "nodes[{i}].positions: длина должна быть кратна 3",
+  "json.err.indicesLength": "nodes[{i}].indices: длина должна быть кратна 3",
+  "json.err.positionsNumbers": "nodes[{i}].positions: содержит нечисловые значения",
+  "json.err.indicesNumbers": "nodes[{i}].indices: содержит нечисловые значения",
+  "json.err.animationsArray": "Поле 'animations' должно быть массивом или отсутствовать",
+  "json.err.parse": "Ошибка парсинга JSON: {msg}",
+
   // Ошибки
   "error.noApiKey":
     "Для облачного провайдера не задан API-ключ. Откройте настройки.",
@@ -161,6 +186,7 @@ const en: Dict = {
   "common.save": "Save",
   "common.builtin": "built-in",
   "common.external": "external",
+  "common.tabChat": "Chat",
 
   // Navigation
   "nav.editor": "Editor",
@@ -222,13 +248,10 @@ const en: Dict = {
 
   // Settings — updates
   "settings.updates": "Updates",
-  "settings.checkUpdate": "Check for updates",
-  "settings.checking": "Checking...",
   "settings.upToDate": "You have the latest version",
   "settings.updateAvailable": "Version {version} is available",
   "settings.installUpdate": "Install update",
   "settings.downloading": "Downloading... {percent}%",
-  "settings.updateError": "Update error: {msg}",
   "settings.currentVersion": "Current version",
 
   // Chat
@@ -306,6 +329,33 @@ const en: Dict = {
   "viewport.animation": "— animation —",
   "viewport.noModel": "no model",
   "viewport.nodes": "Nodes",
+
+  // JSON panel
+  "json.title": "Import JSON",
+  "json.example": "Example",
+  "json.empty": "Enter JSON",
+  "json.valid": "JSON is valid",
+  "json.summary": "{nodes} nodes",
+  "json.save": "Save GLB",
+  "json.saveError": "Save error",
+  "json.saved": "Saved: {path}",
+  "json.previewName": "Preview",
+  "json.previewReady": "Preview ready",
+  "json.previewError": "Preview error",
+
+  "json.err.notObject": "JSON must be an object",
+  "json.err.nodesMissing": "'nodes' field is missing or not an array",
+  "json.err.nodesEmpty": "'nodes' array is empty",
+  "json.err.nodeNotObject": "nodes[{i}] must be an object",
+  "json.err.nodeName": "nodes[{i}].name must be a string",
+  "json.err.nodePositionsArray": "nodes[{i}].positions must be an array",
+  "json.err.nodeIndicesArray": "nodes[{i}].indices must be an array",
+  "json.err.positionsLength": "nodes[{i}].positions: length must be divisible by 3",
+  "json.err.indicesLength": "nodes[{i}].indices: length must be divisible by 3",
+  "json.err.positionsNumbers": "nodes[{i}].positions: contains non-numeric values",
+  "json.err.indicesNumbers": "nodes[{i}].indices: contains non-numeric values",
+  "json.err.animationsArray": "'animations' field must be an array or absent",
+  "json.err.parse": "JSON parse error: {msg}",
 
   // Errors
   "error.noApiKey": "No API key configured for cloud provider. Open settings.",

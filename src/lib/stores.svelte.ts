@@ -4,10 +4,13 @@ import {
   type PersistedSettings,
 } from "./settingsStore";
 import { t } from "./i18n";
+import type { UpdateInfo } from "./tauriApi";
 
 export type AppLanguage = "ru" | "en";
 
 export type ViewportMode = "navigate" | "select";
+
+export type ChatTab = "chat" | "json";
 
 export interface ModelEntry {
   id: string;
@@ -50,6 +53,8 @@ export interface LocalModel {
 export type LlmMode = "external-api" | "ollama" | "llama-sidecar";
 
 class AppState {
+  updateInfo = $state<UpdateInfo | null>(null);
+  chatTab = $state<ChatTab>("chat");
   /** Сколько вершин на ноду попадает в описание референса. */
   maxVertsPerNode = $state<number>(128);
   language = $state<AppLanguage>("ru");

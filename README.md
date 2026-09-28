@@ -46,6 +46,11 @@ Choose the installer for your platform (Windows `.exe`, Linux `.deb`, macOS `.dm
 - Providers: **OpenAI**, **Anthropic**, **OpenRouter**, **llama.cpp (sidecar)**, **Ollama**, **LM Studio**.
 - Manual port input field for custom configurations.
 
+### JSON import
+- Describe the 3D model in JSON format (not `.gltf`) for export to `.glb`.
+- It is possible to insert an example of the specified format.
+- See the model preview.
+
 ### Local models
 - Scan a folder for `.gguf` files.
 - Launch the bundled `llama-server.exe` as a sidecar.

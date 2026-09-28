@@ -6,22 +6,15 @@
     startLlamaSidecar,
     startOllama,
     stopLlmProcess,
-    type UpdateInfo,
     downloadAndInstallUpdate,
-    checkForUpdate,
     checkLocalApi,
   } from "$lib/tauriApi";
-    import { t } from "$lib/i18n";
-    import Dropdown from "./Dropdown.svelte";
-    import { onMount } from "svelte";
-    import { getVersion } from "@tauri-apps/api/app";
+  import { t } from "$lib/i18n";
+  import Dropdown from "./Dropdown.svelte";
 
   let { onClose, expanded = false }: { onClose?: () => void; expanded?: boolean } =
     $props();
 
-  let currentVersion = $state("");
-  let updateInfo = $state<UpdateInfo | null>(null);
-  let checking = $state(false);
   let downloading = $state(false);
   let downloadPercent = $state(0);
   let providerChecking = $state(false);
@@ -70,25 +63,8 @@
     { name: "LM Studio", port: 1234 },
   ];
 
-  async function checkUpdates() {
-    checking = true;
-    try {
-      updateInfo = await checkForUpdate();
-      if (!updateInfo) {
-        app.setStatus(t("settings.upToDate"), "success");
-      }
-    } catch (e: any) {
-      app.setStatus(
-        t("settings.updateError", { msg: e?.message ?? String(e) }),
-        "error"
-      );
-    } finally {
-      checking = false;
-    }
-  }
-
   async function installUpdate() {
-    if (!updateInfo) return;
+    if (!app.updateInfo) return;
     downloading = true;
     try {
       await downloadAndInstallUpdate((percent) => {
@@ -278,14 +254,6 @@
       return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
   }
-
-  onMount(async () => {
-    try {
-      currentVersion = await getVersion();
-    } catch {
-      currentVersion = "1.0.0";
-    }
-  });
 </script>
 
 <div class="settings-panel glass" class:expanded>
@@ -521,51 +489,36 @@
     </section>
 
     <!-- ===================== ОБНОВЛЕНИЯ ===================== -->
-    <section class="section">
-      <div class="section-title">{t("settings.updates")}</div>
+    {#if app.updateInfo}
+        <section class="section">
+            <div class="section-title">{t("settings.updates")}</div>
+            <div class="update-info">
+                <div class="update-header">
+                    <span class="update-version">
+                    {t("settings.updateAvailable", { version: app.updateInfo.version })}
+                    </span>
+                </div>
 
-      <div class="field">
-        <span class="label">{t("settings.currentVersion")}</span>
-        <div class="version-row">
-          <span class="version-badge mono">v{currentVersion}</span>
-          <button
-            class="btn small"
-            onclick={checkUpdates}
-            disabled={checking || downloading}
-          >
-            {checking ? t("settings.checking") : t("settings.checkUpdate")}
-          </button>
-        </div>
-      </div>
-
-      {#if updateInfo}
-        <div class="update-info">
-          <div class="update-header">
-            <span class="update-version">
-              {t("settings.updateAvailable", { version: updateInfo.version })}
-            </span>
-          </div>
-
-          {#if downloading}
-            <div class="download-progress">
-              <div class="download-bar">
-                <div
-                  class="download-fill"
-                  style="width: {downloadPercent}%"
-                ></div>
-              </div>
-              <span class="download-label">
-                {t("settings.downloading", { percent: downloadPercent })}
-              </span>
+                {#if downloading}
+                    <div class="download-progress">
+                    <div class="download-bar">
+                        <div
+                        class="download-fill"
+                        style="width: {downloadPercent}%"
+                        ></div>
+                    </div>
+                    <span class="download-label">
+                        {t("settings.downloading", { percent: downloadPercent })}
+                    </span>
+                    </div>
+                {:else}
+                    <button class="btn" onclick={installUpdate}>
+                    {t("settings.installUpdate")}
+                    </button>
+                {/if}
             </div>
-          {:else}
-            <button class="btn" onclick={installUpdate}>
-              {t("settings.installUpdate")}
-            </button>
-          {/if}
-        </div>
-      {/if}
-    </section>
+        </section>
+    {/if}
   </div>
 </div>
 
@@ -764,22 +717,6 @@
     flex: 1;
     min-width: 80px;
     text-align: center;
-  }
-
-  .version-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .version-badge {
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(255, 122, 26, 0.10);
-    border: 1px solid rgba(255, 122, 26, 0.25);
-    color: var(--orange-2);
-    font-size: 12px;
   }
 
   .update-info {

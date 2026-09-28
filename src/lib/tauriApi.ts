@@ -41,6 +41,16 @@ export async function exportGlb(payload: ExportPayload): Promise<string> {
   return await invoke<string>("export_glb", { payload });
 }
 
+export async function buildGlbBytes(payload: ExportPayload): Promise<Uint8Array<ArrayBuffer>> {
+  const numbers = await invoke<number[]>("build_glb_bytes", { payload });
+  const buffer = new ArrayBuffer(numbers.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < numbers.length; i++) {
+    view[i] = numbers[i];
+  }
+  return view;
+}
+
 export async function convertModel(
   inputPath: string,
   format: string,
